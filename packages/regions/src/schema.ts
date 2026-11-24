@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const CableTypeSchema = z.object({
+  id: z.string().min(1),
+  /** Відображувана назва, напр. «YDYp 3×2,5». */
+  name: z.string().min(1),
+  category: z.enum(["power", "lowCurrent"]),
+  coreCount: z.number().int().positive(),
+  /** Переріз жили, мм². Для слабкострумових кабелів може бути відсутній. */
+  crossSectionMm2: z.number().positive().optional(),
+  /** Стандартні довжини бухт, цілі метри. */
+  reelLengthsM: z.array(z.number().int().positive()).min(1),
+});
+
 /**
  * Регіональний профіль: усі норми, коефіцієнти й типові значення країни.
  * Код ядра не містить жодних «зашитих» нормативних чисел — лише читає профіль.
@@ -20,8 +32,6 @@ export const RegionProfileSchema = z.object({
     rates: z.array(z.number().nonnegative()).min(1),
     defaultRate: z.number().nonnegative(),
   }),
-  /** Стандартні довжини бухт кабелю, м. */
-  cableReelLengthsM: z.array(z.number().positive()).min(1),
   /** Типовий запас на довжину кабелю, %. Користувач може змінити. */
   defaultReservePercent: z.number().nonnegative(),
   /** Типові висоти встановлення від чистової підлоги, мм. */
@@ -29,6 +39,8 @@ export const RegionProfileSchema = z.object({
     socket: z.number().int().positive(),
     switch: z.number().int().positive(),
   }),
+  cableTypes: z.array(CableTypeSchema).min(1),
 });
 
+export type CableType = z.infer<typeof CableTypeSchema>;
 export type RegionProfile = z.infer<typeof RegionProfileSchema>;

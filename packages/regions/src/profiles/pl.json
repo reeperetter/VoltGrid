@@ -9,10 +9,19 @@
     "rates": [8, 23],
     "defaultRate": 8
   },
-  "cableReelLengthsM": [100],
   "defaultReservePercent": 10,
   "mountingHeightsMm": {
     "socket": 300,
     "switch": 1000
-  }
+  },
+  "cableTypes": [
+    { "id": "ydyp-3x1.5", "name": "YDYp 3×1,5", "category": "power", "coreCount": 3, "crossSectionMm2": 1.5, "reelLengthsM": [100] },
+    { "id": "ydyp-3x2.5", "name": "YDYp 3×2,5", "category": "power", "coreCount": 3, "crossSectionMm2": 2.5, "reelLengthsM": [100] },
+    { "id": "ydyp-5x1.5", "name": "YDYp 5×1,5", "category": "power", "coreCount": 5, "crossSectionMm2": 1.5, "reelLengthsM": [100] },
+    { "id": "ydyp-5x2.5", "name": "YDYp 5×2,5", "category": "power", "coreCount": 5, "crossSectionMm2": 2.5, "reelLengthsM": [100] },
+    { "id": "ydyp-5x4", "name": "YDYp 5×4", "category": "power", "coreCount": 5, "crossSectionMm2": 4, "reelLengthsM": [100] },
+    { "id": "yky-5x10", "name": "YKY 5×10", "category": "power", "coreCount": 5, "crossSectionMm2": 10, "reelLengthsM": [100] },
+    { "id": "utp-cat6", "name": "UTP cat.6", "category": "lowCurrent", "coreCount": 8, "reelLengthsM": [305] },
+    { "id": "rg6", "name": "RG6", "category": "lowCurrent", "coreCount": 1, "reelLengthsM": [100] }
+  ]
 }

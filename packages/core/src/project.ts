@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RouteSegmentsSchema } from "./length";
 
 /**
  * Поточна версія формату файлу проєкту.
@@ -19,16 +20,47 @@ export const LevelSchema = z.object({
   ceilingHeightMm: Millimeters.positive(),
 });
 
-export const ProjectSchema = z.object({
-  schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
+/** Група (електричне коло): розетки кухні, освітлення кімнати, стояк тощо. */
+export const GroupSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  /** Ідентифікатор регіонального профілю норм, напр. "pl". */
-  regionId: z.string().min(1),
-  levels: z.array(LevelSchema),
 });
 
+/** Лінія кабелю від щита до точки (або між точками) з розкладкою траси. */
+export const LineSchema = z.object({
+  id: z.string().min(1),
+  groupId: z.string().min(1),
+  cableTypeId: z.string().min(1),
+  segments: RouteSegmentsSchema,
+});
+
+export const ProjectSchema = z
+  .object({
+    schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    /** Ідентифікатор регіонального профілю норм, напр. "pl". */
+    regionId: z.string().min(1),
+    levels: z.array(LevelSchema),
+    groups: z.array(GroupSchema),
+    lines: z.array(LineSchema),
+  })
+  .superRefine((project, ctx) => {
+    const groupIds = new Set(project.groups.map((g) => g.id));
+    project.lines.forEach((line, index) => {
+      if (!groupIds.has(line.groupId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["lines", index, "groupId"],
+          message: `Невідома група: ${line.groupId}`,
+        });
+      }
+    });
+  });
+
 export type Level = z.infer<typeof LevelSchema>;
+export type Group = z.infer<typeof GroupSchema>;
+export type Line = z.infer<typeof LineSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 
 export function createEmptyProject(params: {
@@ -42,6 +74,8 @@ export function createEmptyProject(params: {
     name: params.name,
     regionId: params.regionId,
     levels: [],
+    groups: [],
+    lines: [],
   };
 }
 

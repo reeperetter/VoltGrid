@@ -23,4 +23,20 @@ describe("регіональні профілі", () => {
     const bad = { ...getRegionProfile("pl"), standards: [] };
     expect(RegionProfileSchema.safeParse(bad).success).toBe(false);
   });
+
+  it("ідентифікатори кабелів унікальні", () => {
+    for (const id of listRegionIds()) {
+      const ids = getRegionProfile(id).cableTypes.map((c) => c.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it("схема відхиляє дробову довжину бухти", () => {
+    const pl = getRegionProfile("pl");
+    const bad = {
+      ...pl,
+      cableTypes: [{ ...pl.cableTypes[0], reelLengthsM: [99.5] }],
+    };
+    expect(RegionProfileSchema.safeParse(bad).success).toBe(false);
+  });
 });
