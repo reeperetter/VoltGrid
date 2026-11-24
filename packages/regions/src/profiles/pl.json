@@ -1,0 +1,18 @@
+{
+  "id": "pl",
+  "name": "Polska",
+  "status": "draft",
+  "standards": ["PN-HD 60364", "WT", "SEP"],
+  "defaultLanguage": "pl",
+  "currency": "PLN",
+  "vat": {
+    "rates": [8, 23],
+    "defaultRate": 8
+  },
+  "cableReelLengthsM": [100],
+  "defaultReservePercent": 10,
+  "mountingHeightsMm": {
+    "socket": 300,
+    "switch": 1000
+  }
+}

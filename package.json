@@ -1,0 +1,20 @@
+{
+  "name": "voltgrid",
+  "private": true,
+  "version": "0.0.0",
+  "description": "VoltGrid — проєктування електромереж і розрахунок матеріалів для новобудов",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @voltgrid/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
