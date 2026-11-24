@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addGroup,
+  bomToCsv,
+  buildBom,
   addLevel,
   addOpeningAt,
   addPoint,
@@ -278,6 +280,16 @@ export function App() {
       );
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Не вдалося побудувати траси.");
+    }
+  };
+
+  const onExportBom = () => {
+    try {
+      const rows = buildBom(project, region, reelMode);
+      downloadText(`${safeFileName(project.name)}-специфікація.csv`, bomToCsv(rows), "text/csv;charset=utf-8");
+      setStatus(`Специфікацію збережено: рядків ${rows.length}.`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Не вдалося сформувати специфікацію.");
     }
   };
 
@@ -765,6 +777,7 @@ export function App() {
                 </table>
               </>
             )}
+            <button className="wide" onClick={onExportBom}>Експорт специфікації (CSV)</button>
           </section>
 
           <section>

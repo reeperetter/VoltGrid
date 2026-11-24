@@ -9,3 +9,4 @@ export * from "./history";
 export * from "./sample";
 export * from "./routing";
 export * from "./linepath";
+export * from "./bom";
