@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { getRegionProfile } from "@voltgrid/regions";
 import { calcProjectCables } from "./order";
+import { addLevel } from "./edit";
 import { ProjectSchema, createEmptyProject, type Project } from "./project";
 
 const pl = getRegionProfile("pl");
 
 function sampleProject(): Project {
-  const p = createEmptyProject({ id: "p", name: "Еталон", regionId: "pl" });
+  const p0 = createEmptyProject({ id: "p", name: "Еталон", regionId: "pl" });
+  const lvl = addLevel(p0, { name: "1", ceilingHeightMm: 2700 });
+  const p = lvl.project;
+  const levelId = lvl.id;
   p.groups = [
     { id: "g1", name: "Розетки кухні" },
     { id: "g2", name: "Освітлення кухні" },
@@ -14,9 +18,9 @@ function sampleProject(): Project {
   // g1: 2 лінії по 60 000 мм чистої траси (66 000 із запасом 10 %)
   // g2: 1 лінія 30 000 мм (33 000 із запасом)
   p.lines = [
-    { id: "l1", groupId: "g1", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 58_000, verticalMm: 2_000, detourMm: 0 } },
-    { id: "l2", groupId: "g1", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 58_000, verticalMm: 2_000, detourMm: 0 } },
-    { id: "l3", groupId: "g2", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 28_000, verticalMm: 2_000, detourMm: 0 } },
+    { id: "l1", levelId, groupId: "g1", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 58_000, verticalMm: 2_000, detourMm: 0 } },
+    { id: "l2", levelId, groupId: "g1", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 58_000, verticalMm: 2_000, detourMm: 0 } },
+    { id: "l3", levelId, groupId: "g2", cableTypeId: "ydyp-3x2.5", segments: { horizontalMm: 28_000, verticalMm: 2_000, detourMm: 0 } },
   ];
   return p;
 }

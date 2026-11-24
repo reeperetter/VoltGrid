@@ -123,8 +123,9 @@ describe("тестовий план", () => {
     const plan = createSamplePlan(pl);
     expect(ProjectSchema.safeParse(plan).success).toBe(true);
     expect(plan.walls).toHaveLength(6);
-    expect(plan.openings).toHaveLength(3);
-    expect(plan.points).toHaveLength(11);
+    expect(plan.openings).toHaveLength(4);
+    expect(plan.points).toHaveLength(12);
+    expect(plan.groups).toHaveLength(2);
   });
 
   it("висоти розеток і вимикачів беруться з профілю регіону", () => {

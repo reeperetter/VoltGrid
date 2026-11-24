@@ -38,6 +38,16 @@ export const RegionProfileSchema = z.object({
   mountingHeightsMm: z.object({
     socket: z.number().int().positive(),
     switch: z.number().int().positive(),
+    /** Висота квартирного щитка від чистової підлоги, якщо в проєкті не вказано іншої. */
+    board: z.number().int().positive(),
+  }),
+  wiring: z.object({
+    /** Глибина технічної підлоги: на скільки траса по підлозі нижча за чистову підлогу, мм. */
+    technicalFloorOffsetMm: z.number().int().nonnegative(),
+    /** Відстань траси по підлозі від стін, мм. */
+    wallClearanceMm: z.number().int().nonnegative(),
+    /** Тип кабелю за замовчуванням для кола залежно від виду точок (id з cableTypes). */
+    defaultCableByPointKind: z.record(z.string(), z.string()),
   }),
   cableTypes: z.array(CableTypeSchema).min(1),
   voltageDrop: z.object({

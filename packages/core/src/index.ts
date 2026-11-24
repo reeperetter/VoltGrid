@@ -7,3 +7,4 @@ export * from "./geometry";
 export * from "./edit";
 export * from "./history";
 export * from "./sample";
+export * from "./routing";

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  addGroup,
   addLevel,
   addOpeningAt,
   addPoint,
   addWall,
   canRedo,
+  calcProjectCables,
   canUndo,
   commit,
   createEmptyProject,
@@ -14,13 +16,19 @@ import {
   mmPerPxFromDrawingScale,
   movePoint,
   parseProject,
+  planLevelRoutes,
   redo,
   removeById,
+  removeGroup,
+  replaceLevelLines,
   rescaleMmPerPx,
   serializeProject,
+  setGroupCable,
   setLevelUnderlay,
+  setPointGroup,
   undo,
   type PointMm,
+  type ReelMode,
   type Project,
   type WallMaterial,
 } from "@voltgrid/core";
@@ -29,6 +37,7 @@ import { EditorCanvas } from "./editor/EditorCanvas";
 import {
   DEFAULT_OPTIONS,
   DEFAULT_TOOL_PARAMS,
+  GROUP_COLORS,
   POINT_KIND_LABELS,
   WALL_MATERIAL_LABELS,
   type CalibrationState,
@@ -55,6 +64,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "wall", label: "Стіна", hint: "Клік — початок, клік — кінець; Esc або права кнопка — завершити" },
   { id: "door", label: "Двері", hint: "Клік по стіні" },
   { id: "window", label: "Вікно", hint: "Клік по стіні" },
+  { id: "board", label: "Щит", hint: "Клік на плані — розмістити електрощит" },
   { id: "socket", label: "Розетка", hint: "Клік на плані" },
   { id: "switch", label: "Вимикач", hint: "Клік на плані" },
   { id: "light", label: "Світильник", hint: "Клік на плані" },
@@ -81,6 +91,9 @@ export function App() {
   const [lengthUnit, setLengthUnit] = useState<"mm" | "m">("m");
   const [drawingScale, setDrawingScale] = useState("100");
   const [fitSignal, setFitSignal] = useState(0);
+  const [activeGroupId, setActiveGroupId] = useState<string | undefined>();
+  const [reelMode, setReelMode] = useState<ReelMode>("global");
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("Готово до роботи.");
   const [cursorInfo, setCursorInfo] = useState<{ p: PointMm; scale: number } | undefined>();
 
@@ -151,12 +164,15 @@ export function App() {
 
   const onAddPoint = (kind: PlacedPointKind, at: PointMm) => {
     const heightMm =
-      kind === "socket"
+      kind === "board"
+        ? region.mountingHeightsMm.board
+        : kind === "socket"
         ? region.mountingHeightsMm.socket
         : kind === "switch"
           ? region.mountingHeightsMm.switch
           : (level?.ceilingHeightMm ?? 2700);
-    const result = addPoint(project, { levelId, kind, at, heightMm });
+    const groupId = kind !== "board" && activeGroupId && project.groups.some((g) => g.id === activeGroupId) ? activeGroupId : undefined;
+    const result = addPoint(project, { levelId, kind, at, heightMm, ...(groupId ? { groupId } : {}) });
     setHistory((h) => commit(h, result.project));
     setSelectedId(result.id);
   };
@@ -242,6 +258,27 @@ export function App() {
     setCalibration({});
   };
 
+  const onAddGroup = () => {
+    const result = addGroup(project, { name: `Коло ${project.groups.length + 1}` });
+    setHistory((h) => commit(h, result.project));
+    setActiveGroupId(result.id);
+  };
+
+  const onBuildRoutes = () => {
+    try {
+      const plan = planLevelRoutes(project, region, levelId);
+      apply((p) => replaceLevelLines(p, levelId, plan.lines));
+      setWarnings(plan.warnings);
+      setStatus(
+        plan.lines.length > 0
+          ? `Побудовано ліній: ${plan.lines.length}.${plan.warnings.length ? " Є попередження." : ""}`
+          : "Лінії не побудовано.",
+      );
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Не вдалося побудувати траси.");
+    }
+  };
+
   const onAddLevel = () => {
     const result = addLevel(project, {
       name: `${project.levels.length + 1}-й поверх`,
@@ -304,6 +341,15 @@ export function App() {
   const levelWalls = project.walls.filter((w) => w.levelId === levelId);
   const levelPoints = project.points.filter((p) => p.levelId === levelId);
   const levelOpenings = project.openings.filter((o) => levelWalls.some((w) => w.id === o.wallId));
+  const calc = useMemo(() => {
+    if (project.lines.length === 0) return undefined;
+    try {
+      return calcProjectCables(project, region, { reelMode });
+    } catch {
+      return undefined;
+    }
+  }, [project, region, reelMode]);
+  const selectedPointGroupId = selectedPoint?.groupId ?? "";
   const calibrationReady = !!calibration.a && !!calibration.b;
   const measuredMm =
     calibration.a && calibration.b ? Math.round(distanceMm(calibration.a, calibration.b)) : undefined;
@@ -373,6 +419,7 @@ export function App() {
               onAddWall={onAddWall}
               onAddPoint={onAddPoint}
               onAddOpening={onAddOpening}
+              activeGroupId={activeGroupId}
               onSelect={setSelectedId}
               onMovePoint={(id, to) => apply((p) => movePoint(p, id, to))}
               onCalibrationPoint={onCalibrationPoint}
@@ -600,6 +647,20 @@ export function App() {
                 висота {selectedPoint.heightMm} мм
               </p>
             )}
+            {selectedPoint && selectedPoint.kind !== "board" && (
+              <label className="field">
+                Коло
+                <select
+                  value={selectedPointGroupId}
+                  onChange={(e) => apply((p) => setPointGroup(p, selectedPoint.id, e.target.value || undefined))}
+                >
+                  <option value="">— без кола —</option>
+                  {project.groups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             {selectedId && (
               <button
                 className="wide danger"
@@ -610,6 +671,89 @@ export function App() {
               >
                 Видалити
               </button>
+            )}
+          </section>
+
+          <section>
+            <h3>Кола</h3>
+            <p className="muted">Нові точки потрапляють в активне коло.</p>
+            {project.groups.map((g, i) => (
+              <div key={g.id} className={g.id === activeGroupId ? "group-row active" : "group-row"}>
+                <button
+                  className="swatch"
+                  style={{ background: GROUP_COLORS[i % GROUP_COLORS.length] }}
+                  title="Зробити активним"
+                  aria-label={`Активне коло: ${g.name}`}
+                  onClick={() => setActiveGroupId(g.id === activeGroupId ? undefined : g.id)}
+                />
+                <input
+                  value={g.name}
+                  aria-label="Назва кола"
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    apply((p) => ({ ...p, groups: p.groups.map((x) => (x.id === g.id ? { ...x, name } : x)) }));
+                  }}
+                />
+                <select
+                  value={g.cableTypeId ?? ""}
+                  aria-label="Кабель кола"
+                  onChange={(e) => apply((p) => setGroupCable(p, g.id, e.target.value || undefined))}
+                >
+                  <option value="">кабель за замовч.</option>
+                  {region.cableTypes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button
+                  title="Видалити коло"
+                  onClick={() => {
+                    apply((p) => removeGroup(p, g.id));
+                    if (activeGroupId === g.id) setActiveGroupId(undefined);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button className="wide" onClick={onAddGroup}>Додати коло</button>
+            <button className="wide primary" onClick={onBuildRoutes}>Побудувати траси поверху</button>
+            {warnings.length > 0 && (
+              <ul className="warnings">
+                {warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h3>Замовлення кабелю</h3>
+            {!calc && <p className="muted">Побудуйте траси, щоб побачити кількість кабелю.</p>}
+            {calc && (
+              <>
+                <label className="field">
+                  Бухти
+                  <select value={reelMode} onChange={(e) => setReelMode(e.target.value as ReelMode)}>
+                    <option value="global">спільно на весь проєкт</option>
+                    <option value="perGroup">окремо для кожного кола</option>
+                  </select>
+                </label>
+                <table className="orders">
+                  <thead>
+                    <tr><th>Кабель</th><th>Потрібно, м</th><th>Бухти</th><th>Залишок, м</th></tr>
+                  </thead>
+                  <tbody>
+                    {calc.orders.map((o) => (
+                      <tr key={o.cableTypeId}>
+                        <td>{o.cableName}</td>
+                        <td>{(o.requiredMm / 1000).toFixed(1)}</td>
+                        <td>{o.reels.map((r) => `${r.count}×${r.lengthM} м`).join(", ")}</td>
+                        <td>{(o.leftoverMm / 1000).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             )}
           </section>
 

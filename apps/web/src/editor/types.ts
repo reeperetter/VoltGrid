@@ -9,9 +9,10 @@ export type Tool =
   | "window"
   | "socket"
   | "switch"
-  | "light";
+  | "light"
+  | "board";
 
-export type PlacedPointKind = Extract<ElectricalPointKind, "socket" | "switch" | "light">;
+export type PlacedPointKind = Extract<ElectricalPointKind, "socket" | "switch" | "light" | "board">;
 
 export interface EditorOptions {
   grid: boolean;
@@ -71,9 +72,13 @@ export const WALL_MATERIAL_LABELS: Record<WallMaterial, string> = {
 };
 
 export const POINT_KIND_LABELS: Record<ElectricalPointKind, string> = {
+  board: "Щит",
   socket: "Розетка",
   switch: "Вимикач",
   light: "Світильник",
   appliance: "Прилад",
   data: "Слабкострумова точка",
 };
+
+/** Кольори кіл (за порядком у проєкті). */
+export const GROUP_COLORS = ["#dc2626", "#2563eb", "#059669", "#d97706", "#7c3aed", "#0891b2", "#be185d", "#65a30d"];

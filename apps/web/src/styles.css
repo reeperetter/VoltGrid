@@ -115,3 +115,12 @@ input, select {
   .workspace { grid-template-columns: 96px 1fr; }
   .panel { display: none; }
 }
+
+.group-row { display: grid; grid-template-columns: 18px 1fr 1fr 24px; gap: 4px; align-items: center; margin-bottom: 4px; }
+.group-row.active { outline: 2px solid #2563eb; border-radius: 4px; }
+.group-row .swatch { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid #0003; }
+.group-row input, .group-row select { min-width: 0; width: 100%; }
+.warnings { margin: 6px 0 0; padding-left: 18px; color: #b45309; font-size: 12px; }
+.orders { width: 100%; border-collapse: collapse; font-size: 12px; }
+.orders th, .orders td { border-bottom: 1px solid #e5e7eb; padding: 3px 4px; text-align: left; }
+button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }

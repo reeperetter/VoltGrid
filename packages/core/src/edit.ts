@@ -2,6 +2,7 @@ import { distanceMm, projectOnSegment, roundMm, roundPoint, type PointMm } from 
 import type {
   ElectricalPointKind,
   Level,
+  Line,
   Project,
   Underlay,
   WallMaterial,
@@ -163,6 +164,78 @@ export function movePoint(project: Project, id: string, to: PointMm): Project {
     ...project,
     points: project.points.map((p) => (p.id === id ? { ...p, xMm: at.xMm, yMm: at.yMm } : p)),
   };
+}
+
+export function addGroup(
+  project: Project,
+  params: { name: string; cableTypeId?: string },
+): Added {
+  const group = {
+    id: nextId("g", project.groups),
+    name: params.name,
+    ...(params.cableTypeId !== undefined ? { cableTypeId: params.cableTypeId } : {}),
+  };
+  return { project: { ...project, groups: [...project.groups, group] }, id: group.id };
+}
+
+/** Задає або прибирає (undefined) тип кабелю кола. */
+export function setGroupCable(
+  project: Project,
+  groupId: string,
+  cableTypeId: string | undefined,
+): Project {
+  return {
+    ...project,
+    groups: project.groups.map((g) => {
+      if (g.id !== groupId) return g;
+      const { cableTypeId: _old, ...rest } = g;
+      return cableTypeId !== undefined ? { ...rest, cableTypeId } : rest;
+    }),
+  };
+}
+
+/** Видаляє коло: точки лишаються без кола, лінії кола видаляються. */
+export function removeGroup(project: Project, groupId: string): Project {
+  return {
+    ...project,
+    groups: project.groups.filter((g) => g.id !== groupId),
+    lines: project.lines.filter((l) => l.groupId !== groupId),
+    points: project.points.map((p) => {
+      if (p.groupId !== groupId) return p;
+      const { groupId: _old, ...rest } = p;
+      return rest;
+    }),
+  };
+}
+
+/** Призначає точку колу або знімає призначення (undefined). */
+export function setPointGroup(
+  project: Project,
+  pointId: string,
+  groupId: string | undefined,
+): Project {
+  return {
+    ...project,
+    points: project.points.map((p) => {
+      if (p.id !== pointId) return p;
+      const { groupId: _old, ...rest } = p;
+      return groupId !== undefined ? { ...rest, groupId } : rest;
+    }),
+  };
+}
+
+/** Замінює всі лінії поверху новими (ідентифікатори присвоюються тут). */
+export function replaceLevelLines(
+  project: Project,
+  levelId: string,
+  newLines: readonly Omit<Line, "id">[],
+): Project {
+  const kept = project.lines.filter((l) => l.levelId !== levelId);
+  const lines = [...kept];
+  for (const line of newLines) {
+    lines.push({ ...line, id: nextId("ln", lines) });
+  }
+  return { ...project, lines };
 }
 
 /** Видаляє стіну (разом з її отворами), отвір або точку за ідентифікатором. */

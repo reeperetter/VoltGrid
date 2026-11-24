@@ -9,6 +9,7 @@ import {
   snapToGrid,
   type ElectricalPoint,
   type Opening,
+  type Line as CableLine,
   type PointMm,
   type Project,
   type Wall,
@@ -21,6 +22,7 @@ import type {
   PlacedPointKind,
   Tool,
 } from "./types";
+import { GROUP_COLORS } from "./types";
 
 interface View {
   x: number;
@@ -39,6 +41,7 @@ const WALL_COLORS: Record<WallMaterial, string> = {
   drywall: "#94a3b8",
 };
 const POINT_COLORS: Record<ElectricalPoint["kind"], string> = {
+  board: "#111827",
   socket: "#d97706",
   switch: "#059669",
   light: "#ca8a04",
@@ -60,6 +63,8 @@ export interface EditorCanvasProps {
   onAddWall: (start: PointMm, end: PointMm) => void;
   onAddPoint: (kind: PlacedPointKind, at: PointMm) => void;
   onAddOpening: (kind: "door" | "window", at: PointMm, maxDistanceMm: number) => void;
+  /** Ідентифікатор кола, лінії якого підсвічуються. */
+  activeGroupId?: string | undefined;
   onSelect: (id: string | undefined) => void;
   onMovePoint: (id: string, to: PointMm) => void;
   onCalibrationPoint: (p: PointMm) => void;
@@ -92,6 +97,8 @@ export function EditorCanvas(props: EditorCanvasProps) {
     [project.openings, wallsById],
   );
   const points = useMemo(() => project.points.filter((p) => p.levelId === levelId), [project.points, levelId]);
+  const lines = useMemo(() => project.lines.filter((l) => l.levelId === levelId), [project.lines, levelId]);
+  const groupIndex = useMemo(() => new Map(project.groups.map((g, i) => [g.id, i])), [project.groups]);
   const endpoints = useMemo(() => walls.flatMap((w) => [w.start, w.end]), [walls]);
 
   // Розмір контейнера.
@@ -216,6 +223,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
       case "socket":
       case "switch":
       case "light":
+      case "board":
         props.onAddPoint(tool, options.grid ? snapToGrid(raw, options.gridMm) : roundPoint(raw));
         break;
       case "calibrate":
@@ -305,6 +313,15 @@ export function EditorCanvas(props: EditorCanvasProps) {
                 <OpeningShape key={o.id} opening={o} wall={wall} selected={o.id === selectedId} />
               ) : null;
             })}
+            {lines.map((l) => (
+              <CableShape
+                key={l.id}
+                line={l}
+                color={GROUP_COLORS[(groupIndex.get(l.groupId) ?? 0) % GROUP_COLORS.length] as string}
+                active={props.activeGroupId === undefined || props.activeGroupId === l.groupId}
+                px={px}
+              />
+            ))}
             {points.map((p) => (
               <PointShape
                 key={p.id}
@@ -440,7 +457,9 @@ function PointShape(props: {
       }}
     >
       {selected && <Circle id={point.id} radius={r * 1.7} stroke={ACCENT} strokeWidth={2 * px} />}
-      {point.kind === "switch" ? (
+      {point.kind === "board" ? (
+        <Rect id={point.id} x={-r * 1.3} y={-r * 1.3} width={2.6 * r} height={2.6 * r} fill={color} stroke={color} strokeWidth={3 * px} />
+      ) : point.kind === "switch" ? (
         <Rect id={point.id} x={-r} y={-r} width={2 * r} height={2 * r} fill="#ffffff" stroke={color} strokeWidth={3 * px} />
       ) : (
         <Circle id={point.id} radius={r} fill="#ffffff" stroke={color} strokeWidth={3 * px} />
@@ -458,6 +477,21 @@ function PointShape(props: {
         <Line id={point.id} points={[-r * 0.4, r * 0.4, r * 0.4, -r * 0.4]} stroke={color} strokeWidth={3 * px} />
       )}
     </Group>
+  );
+}
+
+function CableShape(props: { line: CableLine; color: string; active: boolean; px: number }) {
+  const { line, color, active, px } = props;
+  if (!line.path || line.path.length < 2) return null;
+  return (
+    <Line
+      listening={false}
+      points={line.path.flatMap((p) => [p.xMm, p.yMm])}
+      stroke={color}
+      strokeWidth={(active ? 3 : 1.5) * px}
+      opacity={active ? 0.95 : 0.35}
+      lineJoin="round"
+    />
   );
 }
 

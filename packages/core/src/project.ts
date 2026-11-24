@@ -55,6 +55,7 @@ export const OpeningSchema = z.object({
 });
 
 export const ElectricalPointKindSchema = z.enum([
+  "board",
   "socket",
   "switch",
   "light",
@@ -78,14 +79,19 @@ export const ElectricalPointSchema = z.object({
 export const GroupSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  /** Тип кабелю кола. Якщо не задано — береться за замовчуванням з профілю за видом точок. */
+  cableTypeId: z.string().min(1).optional(),
 });
 
 /** Лінія кабелю від щита до точки (або між точками) з розкладкою траси. */
 export const LineSchema = z.object({
   id: z.string().min(1),
+  levelId: z.string().min(1),
   groupId: z.string().min(1),
   cableTypeId: z.string().min(1),
   segments: RouteSegmentsSchema,
+  /** Ламана траси по підлозі (кути), для відображення. */
+  path: z.array(PointMmSchema).optional(),
 });
 
 export const ProjectSchema = z
@@ -108,6 +114,13 @@ export const ProjectSchema = z
     const wallsById = new Map(project.walls.map((w) => [w.id, w]));
 
     project.lines.forEach((line, index) => {
+      if (!levelIds.has(line.levelId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["lines", index, "levelId"],
+          message: `Невідомий поверх: ${line.levelId}`,
+        });
+      }
       if (!groupIds.has(line.groupId)) {
         ctx.addIssue({
           code: "custom",

@@ -12,7 +12,19 @@
   "defaultReservePercent": 10,
   "mountingHeightsMm": {
     "socket": 300,
-    "switch": 1000
+    "switch": 1000,
+    "board": 2400
+  },
+  "wiring": {
+    "technicalFloorOffsetMm": 150,
+    "wallClearanceMm": 200,
+    "defaultCableByPointKind": {
+      "socket": "ydyp-3x2.5",
+      "switch": "ydyp-3x1.5",
+      "light": "ydyp-3x1.5",
+      "appliance": "ydyp-3x2.5",
+      "data": "utp-cat6"
+    }
   },
   "voltageDrop": {
     "conductorTemperatureC": 70,

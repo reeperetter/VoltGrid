@@ -31,6 +31,16 @@ describe("регіональні профілі", () => {
     }
   });
 
+  it("кабелі за замовчуванням для кіл існують у каталозі", () => {
+    for (const id of listRegionIds()) {
+      const profile = getRegionProfile(id);
+      const known = new Set(profile.cableTypes.map((c) => c.id));
+      for (const cableId of Object.values(profile.wiring.defaultCableByPointKind)) {
+        expect(known.has(cableId)).toBe(true);
+      }
+    }
+  });
+
   it("схема відхиляє дробову довжину бухти", () => {
     const pl = getRegionProfile("pl");
     const bad = {
