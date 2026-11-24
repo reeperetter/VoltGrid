@@ -3,6 +3,7 @@ import { Circle, Group, Image as KImage, Layer, Line, Rect, Shape, Stage, Text }
 import type Konva from "konva";
 import {
   distanceMm,
+  moveSegment,
   nearestTarget,
   roundPoint,
   snapOrthogonal,
@@ -66,6 +67,7 @@ export interface EditorCanvasProps {
   /** Ідентифікатор кола, лінії якого підсвічуються. */
   activeGroupId?: string | undefined;
   onSelect: (id: string | undefined) => void;
+  onEditLinePath: (lineId: string, path: PointMm[]) => void;
   onMovePoint: (id: string, to: PointMm) => void;
   onCalibrationPoint: (p: PointMm) => void;
   onCursor: (p: PointMm | undefined, scale: number) => void;
@@ -319,9 +321,45 @@ export function EditorCanvas(props: EditorCanvasProps) {
                 line={l}
                 color={GROUP_COLORS[(groupIndex.get(l.groupId) ?? 0) % GROUP_COLORS.length] as string}
                 active={props.activeGroupId === undefined || props.activeGroupId === l.groupId}
+                selected={l.id === selectedId}
                 px={px}
               />
             ))}
+            {tool === "select" &&
+              lines
+                .filter((l) => l.id === selectedId && l.path)
+                .flatMap((l) =>
+                  (l.path as PointMm[]).slice(0, -1).map((a, i, all) => {
+                    const b = (l.path as PointMm[])[i + 1] as PointMm;
+                    const horizontal = a.yMm === b.yMm;
+                    return (
+                      <Rect
+                        key={`${l.id}-h${i}`}
+                        x={(a.xMm + b.xMm) / 2 - 5 * px}
+                        y={(a.yMm + b.yMm) / 2 - 5 * px}
+                        width={10 * px}
+                        height={10 * px}
+                        fill="#ffffff"
+                        stroke={ACCENT}
+                        strokeWidth={2 * px}
+                        draggable
+                        dragBoundFunc={(pos) => {
+                          // обмежуємо рух перпендикулярно до ланки
+                          const cur = { x: ((a.xMm + b.xMm) / 2 - 5 * px) * view.scale + view.x, y: ((a.yMm + b.yMm) / 2 - 5 * px) * view.scale + view.y };
+                          return horizontal ? { x: cur.x, y: pos.y } : { x: pos.x, y: cur.y };
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          const raw = horizontal ? e.target.y() + 5 * px : e.target.x() + 5 * px;
+                          const v = options.grid ? Math.round(raw / options.gridMm) * options.gridMm : raw;
+                          const next = moveSegment(l.path as PointMm[], i, v);
+                          e.target.position({ x: (a.xMm + b.xMm) / 2 - 5 * px, y: (a.yMm + b.yMm) / 2 - 5 * px });
+                          if (next && all.length > 0) props.onEditLinePath(l.id, next);
+                        }}
+                      />
+                    );
+                  }),
+                )}
             {points.map((p) => (
               <PointShape
                 key={p.id}
@@ -480,15 +518,16 @@ function PointShape(props: {
   );
 }
 
-function CableShape(props: { line: CableLine; color: string; active: boolean; px: number }) {
-  const { line, color, active, px } = props;
+function CableShape(props: { line: CableLine; color: string; active: boolean; selected: boolean; px: number }) {
+  const { line, color, active, selected, px } = props;
   if (!line.path || line.path.length < 2) return null;
   return (
     <Line
-      listening={false}
+      id={line.id}
+      hitStrokeWidth={10 * px}
       points={line.path.flatMap((p) => [p.xMm, p.yMm])}
-      stroke={color}
-      strokeWidth={(active ? 3 : 1.5) * px}
+      stroke={selected ? ACCENT : color}
+      strokeWidth={(selected ? 4 : active ? 3 : 1.5) * px}
       opacity={active ? 0.95 : 0.35}
       lineJoin="round"
     />

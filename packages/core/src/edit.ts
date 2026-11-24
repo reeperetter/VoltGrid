@@ -253,5 +253,8 @@ export function removeById(project: Project, id: string): Project {
   if (project.points.some((p) => p.id === id)) {
     return { ...project, points: project.points.filter((p) => p.id !== id) };
   }
+  if (project.lines.some((l) => l.id === id)) {
+    return { ...project, lines: project.lines.filter((l) => l.id !== id) };
+  }
   return project;
 }

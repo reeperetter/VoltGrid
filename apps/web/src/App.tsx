@@ -24,6 +24,7 @@ import {
   rescaleMmPerPx,
   serializeProject,
   setGroupCable,
+  setLinePath,
   setLevelUnderlay,
   setPointGroup,
   undo,
@@ -139,7 +140,8 @@ export function App() {
     const exists =
       project.walls.some((w) => w.id === selectedId) ||
       project.openings.some((o) => o.id === selectedId) ||
-      project.points.some((p) => p.id === selectedId);
+      project.points.some((p) => p.id === selectedId) ||
+      project.lines.some((l) => l.id === selectedId);
     if (!exists) setSelectedId(undefined);
   }, [project, selectedId]);
 
@@ -337,6 +339,7 @@ export function App() {
 
   const selectedWall = project.walls.find((w) => w.id === selectedId);
   const selectedOpening = project.openings.find((o) => o.id === selectedId);
+  const selectedLine = project.lines.find((l) => l.id === selectedId);
   const selectedPoint = project.points.find((p) => p.id === selectedId);
   const levelWalls = project.walls.filter((w) => w.levelId === levelId);
   const levelPoints = project.points.filter((p) => p.levelId === levelId);
@@ -421,6 +424,7 @@ export function App() {
               onAddOpening={onAddOpening}
               activeGroupId={activeGroupId}
               onSelect={setSelectedId}
+              onEditLinePath={(id, path) => apply((p) => setLinePath(p, id, path))}
               onMovePoint={(id, to) => apply((p) => movePoint(p, id, to))}
               onCalibrationPoint={onCalibrationPoint}
               onCursor={(p, scale) => setCursorInfo(p ? { p, scale } : undefined)}
@@ -639,6 +643,12 @@ export function App() {
               <p>
                 {selectedOpening.kind === "door" ? "Двері" : "Вікно"} · {selectedOpening.widthMm}×
                 {selectedOpening.heightMm} мм, підвіконня {selectedOpening.sillMm} мм
+              </p>
+            )}
+            {selectedLine && (
+              <p>
+                Лінія {selectedLine.id} · обхід {selectedLine.segments.detourMm} мм. Перетягуйте білі
+                квадрати посередині ланок, щоб змінити трасу.
               </p>
             )}
             {selectedPoint && (
