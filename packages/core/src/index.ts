@@ -3,3 +3,7 @@ export * from "./length";
 export * from "./reels";
 export * from "./order";
 export * from "./checks";
+export * from "./geometry";
+export * from "./edit";
+export * from "./history";
+export * from "./sample";

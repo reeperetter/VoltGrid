@@ -1,0 +1,117 @@
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #d9dee7;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --danger: #b91c1c;
+  --canvas: #fbfbfc;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #111a2c;
+    --border: #26324a;
+    --text: #e5ebf5;
+    --muted: #93a1b8;
+    --accent: #60a5fa;
+    --accent-soft: #1e3a5f;
+    --danger: #f87171;
+    --canvas: #0f1727;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+
+.topbar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+  background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.brand { font-size: 16px; letter-spacing: 0.02em; }
+.project-name {
+  min-width: 160px; flex: 0 1 260px;
+}
+.topbar-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+button, .button, input, select {
+  font: inherit; color: inherit;
+}
+button, .button {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; cursor: pointer; display: inline-block;
+}
+button:hover:not(:disabled), .button:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, .button:focus-within, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+input, select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+
+.workspace { display: grid; grid-template-columns: 136px 1fr 300px; min-height: 0; }
+
+.toolbar {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px;
+  background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto;
+}
+.tool { text-align: left; width: 100%; }
+.tool.active { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+
+.canvas-wrap { position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
+.canvas-host { position: absolute; inset: 0; overflow: hidden; }
+.empty { padding: 24px; color: var(--muted); }
+
+.panel {
+  background: var(--surface); border-left: 1px solid var(--border);
+  overflow-y: auto; padding: 4px 14px 14px;
+}
+.panel section { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.panel section:last-child { border-bottom: 0; }
+.panel h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.panel p { margin: 6px 0; }
+.muted { color: var(--muted); }
+.wide { width: 100%; margin-top: 6px; text-align: center; }
+.danger { color: var(--danger); }
+.levels { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; }
+.chip.active { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.field { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
+.field input, .field select { width: 120px; }
+.check { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.row { display: flex; gap: 6px; align-items: center; }
+.row input { width: 90px; }
+.scale-row { margin-top: 8px; }
+.scale-row input { width: 64px; }
+.callout {
+  margin-top: 8px; padding: 8px 10px; border: 1px solid var(--accent);
+  background: var(--accent-soft); border-radius: 6px;
+}
+
+.statusbar {
+  display: flex; justify-content: space-between; gap: 12px; padding: 6px 12px;
+  background: var(--surface); border-top: 1px solid var(--border); color: var(--muted);
+}
+.coords { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: 96px 1fr; }
+  .panel { display: none; }
+}

@@ -12,8 +12,11 @@
   "dependencies": {
     "@voltgrid/core": "workspace:*",
     "@voltgrid/regions": "workspace:*",
+    "konva": "^10.11.0",
+    "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-konva": "^19.3.2"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
