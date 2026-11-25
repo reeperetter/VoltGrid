@@ -124,3 +124,10 @@ input, select {
 .orders { width: 100%; border-collapse: collapse; font-size: 12px; }
 .orders th, .orders td { border-bottom: 1px solid #e5e7eb; padding: 3px 4px; text-align: left; }
 button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+.checks { margin: 0; padding-left: 16px; font-size: 12px; }
+.checks li { margin-bottom: 4px; }
+.checks .sev-ok { color: #047857; }
+.checks .sev-info { color: #6b7280; }
+.checks .sev-warn { color: #b45309; }
+.checks .sev-error { color: #b91c1c; font-weight: 600; }

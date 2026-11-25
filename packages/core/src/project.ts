@@ -81,6 +81,14 @@ export const GroupSchema = z.object({
   name: z.string().min(1),
   /** Тип кабелю кола. Якщо не задано — береться за замовчуванням з профілю за видом точок. */
   cableTypeId: z.string().min(1).optional(),
+  /** Розрахункова потужність кола, Вт (вводить користувач; типові норми — окремо). */
+  powerW: z.number().nonnegative().optional(),
+  /** Розрахунковий струм Ib, А. */
+  designCurrentA: z.number().nonnegative().optional(),
+  /** Номінальний струм автомата In, А. */
+  breakerA: z.number().positive().optional(),
+  /** Допустимий струм кабелю Iz, А — вручну, поки таблиці не внесено в профіль. */
+  cableCapacityA: z.number().positive().optional(),
 });
 
 /** Лінія кабелю від щита до точки (або між точками) з розкладкою траси. */

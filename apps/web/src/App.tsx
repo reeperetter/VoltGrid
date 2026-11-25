@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addGroup,
+  buildCheckReport,
   bomToCsv,
   buildBom,
   addLevel,
@@ -364,6 +365,25 @@ export function App() {
       return undefined;
     }
   }, [project, region, reelMode]);
+  const checkReport = useMemo(() => buildCheckReport(project, region), [project, region]);
+  const activeGroup = project.groups.find((g) => g.id === activeGroupId);
+  const setGroupNumber = (
+    field: "powerW" | "designCurrentA" | "breakerA" | "cableCapacityA",
+    raw: string,
+  ) => {
+    if (!activeGroup) return;
+    const n = raw.trim() === "" ? undefined : toNumber(raw, NaN);
+    apply((p) => ({
+      ...p,
+      groups: p.groups.map((g) => {
+        if (g.id !== activeGroup.id) return g;
+        const { [field]: _old, ...rest } = g;
+        return n !== undefined && Number.isFinite(n) && n >= 0 && (field === "powerW" || field === "designCurrentA" || n > 0)
+          ? { ...rest, [field]: n }
+          : rest;
+      }),
+    }));
+  };
   const selectedPointGroupId = selectedPoint?.groupId ?? "";
   const calibrationReady = !!calibration.a && !!calibration.b;
   const measuredMm =
@@ -737,6 +757,28 @@ export function App() {
                 </button>
               </div>
             ))}
+            {activeGroup && (
+              <div className="callout">
+                <p>Електричні дані кола «{activeGroup.name}» (для перевірок):</p>
+                {(
+                  [
+                    ["powerW", "Потужність, Вт"],
+                    ["designCurrentA", "Ib, А"],
+                    ["breakerA", "In автомата, А"],
+                    ["cableCapacityA", "Iz кабелю, А"],
+                  ] as const
+                ).map(([field, label]) => (
+                  <label className="field" key={`${activeGroup.id}-${field}`}>
+                    {label}
+                    <input
+                      defaultValue={activeGroup[field] ?? ""}
+                      inputMode="decimal"
+                      onBlur={(e) => setGroupNumber(field, e.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
             <button className="wide" onClick={onAddGroup}>Додати коло</button>
             <button className="wide primary" onClick={onBuildRoutes}>Побудувати траси поверху</button>
             {warnings.length > 0 && (
@@ -746,6 +788,16 @@ export function App() {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section>
+            <h3>Перевірки</h3>
+            {checkReport.length === 0 && <p className="muted">Побудуйте траси, щоб побачити перевірки.</p>}
+            <ul className="checks">
+              {checkReport.map((c, i) => (
+                <li key={i} className={`sev-${c.severity}`}>{c.text}</li>
+              ))}
+            </ul>
           </section>
 
           <section>
