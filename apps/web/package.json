@@ -12,6 +12,7 @@
   "dependencies": {
     "@voltgrid/core": "workspace:*",
     "@voltgrid/regions": "workspace:*",
+    "exceljs": "^4.4.0",
     "konva": "^10.11.0",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",

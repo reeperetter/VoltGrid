@@ -51,7 +51,9 @@ import {
   type Tool,
   type ToolParams,
 } from "./editor/types";
-import { downloadText, readFileText, safeFileName } from "./lib/files";
+import { downloadBytes, downloadText, readFileText, safeFileName } from "./lib/files";
+import { buildReportHtml, openPrintableReport } from "./lib/printReport";
+import { buildXlsx } from "./lib/exportXlsx";
 import { guessMmPerPx, loadUnderlay } from "./lib/underlay";
 
 const REGION_ID = "pl";
@@ -292,6 +294,25 @@ export function App() {
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Не вдалося сформувати специфікацію.");
     }
+  };
+
+  const onExportXlsx = async () => {
+    try {
+      const bytes = await buildXlsx(project, region, reelMode);
+      downloadBytes(
+        `${safeFileName(project.name)}-специфікація.xlsx`,
+        bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      setStatus("Книгу Excel збережено.");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Не вдалося сформувати Excel.");
+    }
+  };
+
+  const onPrintReport = () => {
+    const ok = openPrintableReport(buildReportHtml(project, region, reelMode));
+    setStatus(ok ? "Звіт відкрито для друку / збереження в PDF." : "Браузер заблокував нове вікно — дозвольте спливні вікна.");
   };
 
   const onAddLevel = () => {
@@ -830,6 +851,8 @@ export function App() {
               </>
             )}
             <button className="wide" onClick={onExportBom}>Експорт специфікації (CSV)</button>
+            <button className="wide" onClick={() => void onExportXlsx()}>Експорт у Excel (XLSX)</button>
+            <button className="wide" onClick={onPrintReport}>Звіт: друк / PDF</button>
           </section>
 
           <section>
