@@ -8,6 +8,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "VoltGrid",
+    icon: path.join(__dirname, "build", "icon.png"),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.loadFile(path.join(__dirname, "dist-web", "index.html"));

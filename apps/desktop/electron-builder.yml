@@ -2,11 +2,14 @@ appId: com.voltgrid.app
 productName: VoltGrid
 directories:
   output: release
+  buildResources: build
 files:
   - main.cjs
+  - build/icon.png
   - dist-web/**
   - package.json
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
@@ -17,6 +20,7 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 linux:
+  icon: build/icon.png
   executableName: voltgrid
   target:
     - target: AppImage
