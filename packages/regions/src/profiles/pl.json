@@ -31,6 +31,12 @@
     "copperResistivityOhmMm2PerM": 0.0206,
     "limitsPercent": {}
   },
+  "typicalLoads": {
+    "pointPowerW": { "socket": 300, "light": 60, "appliance": 2000 },
+    "simultaneityFactor": 1,
+    "phaseVoltageV": 230,
+    "powerFactor": 1
+  },
   "cableTypes": [
     { "id": "ydyp-3x1.5", "name": "YDYp 3×1,5", "category": "power", "coreCount": 3, "crossSectionMm2": 1.5, "reelLengthsM": [100] },
     { "id": "ydyp-3x2.5", "name": "YDYp 3×2,5", "category": "power", "coreCount": 3, "crossSectionMm2": 2.5, "reelLengthsM": [100] },

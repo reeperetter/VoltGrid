@@ -14,6 +14,25 @@ export interface CheckItem {
   text: string;
 }
 
+/** Потужність і струм кола: задані користувачем мають пріоритет, інакше — типові норми профілю (чернетка). */
+export function effectiveLoad(
+  project: Project,
+  groupId: string,
+  region: RegionProfile,
+): { powerW: number | undefined; currentA: number | undefined; typical: boolean } {
+  const group = project.groups.find((g) => g.id === groupId);
+  const t = region.typicalLoads;
+  const typicalPower =
+    project.points
+      .filter((p) => p.groupId === groupId)
+      .reduce((s, p) => s + (t.pointPowerW[p.kind] ?? 0), 0) * t.simultaneityFactor;
+  const powerW = group?.powerW ?? (typicalPower > 0 ? typicalPower : undefined);
+  const currentA =
+    group?.designCurrentA ?? (powerW !== undefined ? powerW / (t.phaseVoltageV * t.powerFactor) : undefined);
+  const typical = group?.designCurrentA === undefined && currentA !== undefined;
+  return { powerW, currentA, typical };
+}
+
 const fmt = (n: number, d = 2) => n.toFixed(d).replace(".", ",");
 
 /**
@@ -31,7 +50,10 @@ export function buildCheckReport(project: Project, region: RegionProfile): Check
     const prefix = `Коло «${group.name}»: `;
 
     // ΔU
-    if (group.designCurrentA === undefined) {
+    const load = effectiveLoad(project, group.id, region);
+    const ib = load.currentA;
+    const note = load.typical ? " [Ib за типовими нормами, чернетка]" : "";
+    if (ib === undefined) {
       items.push({ groupId: group.id, check: "voltageDrop", severity: "info", text: `${prefix}не задано розрахунковий струм — ΔU не перевірено.` });
     } else if (!cable?.crossSectionMm2) {
       items.push({ groupId: group.id, check: "voltageDrop", severity: "info", text: `${prefix}для кабелю не відомий переріз — ΔU не перевірено.` });
@@ -40,20 +62,20 @@ export function buildCheckReport(project: Project, region: RegionProfile): Check
       const pointKinds = new Set(project.points.filter((p) => p.groupId === group.id).map((p) => p.kind));
       const lighting = pointKinds.size > 0 && [...pointKinds].every((k) => k === "light" || k === "switch");
       const r = checkVoltageDrop(
-        { currentA: group.designCurrentA, lengthMm: baseMm, crossSectionMm2: cable.crossSectionMm2, phases: 1, loadKind: lighting ? "lighting" : "other" },
+        { currentA: ib, lengthMm: baseMm, crossSectionMm2: cable.crossSectionMm2, phases: 1, loadKind: lighting ? "lighting" : "other" },
         region,
       );
-      const text = `${prefix}ΔU = ${fmt(r.dropPercent)} % (${fmt(r.dropV)} В, ${fmt(baseMm / 1000, 1)} м)`;
+      const text = `${prefix}ΔU = ${fmt(r.dropPercent)} % (${fmt(r.dropV)} В, ${fmt(baseMm / 1000, 1)} м, Ib ${fmt(ib, 1)} А)${note}`;
       if (r.status === "noLimit") items.push({ groupId: group.id, check: "voltageDrop", severity: "info", text: `${text}; межу не задано в профілі.` });
       else if (r.status === "exceeded") items.push({ groupId: group.id, check: "voltageDrop", severity: "error", text: `${text} перевищує межу ${fmt(r.limitPercent ?? 0, 1)} %.` });
       else items.push({ groupId: group.id, check: "voltageDrop", severity: "ok", text: `${text} — у межах ${fmt(r.limitPercent ?? 0, 1)} %.` });
     }
 
     // Перевантаження
-    if (group.designCurrentA === undefined || group.breakerA === undefined || group.cableCapacityA === undefined) {
+    if (ib === undefined || group.breakerA === undefined || group.cableCapacityA === undefined) {
       items.push({ groupId: group.id, check: "overload", severity: "info", text: `${prefix}для перевірки на перевантаження потрібні Ib, In автомата та Iz кабелю.` });
     } else {
-      const r = checkOverload({ designCurrentA: group.designCurrentA, ratedCurrentA: group.breakerA, cableCapacityA: group.cableCapacityA });
+      const r = checkOverload({ designCurrentA: ib, ratedCurrentA: group.breakerA, cableCapacityA: group.cableCapacityA });
       items.push({
         groupId: group.id,
         check: "overload",
@@ -66,9 +88,11 @@ export function buildCheckReport(project: Project, region: RegionProfile): Check
   }
 
   // Баланс фаз (за заданою потужністю кіл)
-  const powered = project.groups.filter((g) => g.powerW !== undefined && g.powerW > 0);
+  const powered = project.groups
+    .map((g) => ({ id: g.id, powerW: effectiveLoad(project, g.id, region).powerW ?? 0 }))
+    .filter((g) => g.powerW > 0);
   if (powered.length >= 2) {
-    const r = balancePhases(powered.map((g) => ({ id: g.id, powerW: g.powerW as number })));
+    const r = balancePhases(powered);
     const severity: Severity = r.maxDeviationPercent > 20 ? "warn" : "ok";
     items.push({
       check: "phaseBalance",

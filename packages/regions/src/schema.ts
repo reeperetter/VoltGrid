@@ -49,6 +49,18 @@ export const RegionProfileSchema = z.object({
     /** Тип кабелю за замовчуванням для кола залежно від виду точок (id з cableTypes). */
     defaultCableByPointKind: z.record(z.string(), z.string()),
   }),
+  /**
+   * Типові навантаження для чернеткового розрахунку кола, поки користувач не задав свої.
+   * Значення потребують звірки (див. docs/OPEN-QUESTIONS.md, розділ C).
+   */
+  typicalLoads: z.object({
+    /** Потужність однієї точки за видом, Вт (вид без запису не враховується). */
+    pointPowerW: z.record(z.string(), z.number().nonnegative()),
+    /** Коефіцієнт одночасності кола, 0…1. */
+    simultaneityFactor: z.number().positive().max(1),
+    phaseVoltageV: z.number().positive(),
+    powerFactor: z.number().positive().max(1),
+  }),
   cableTypes: z.array(CableTypeSchema).min(1),
   voltageDrop: z.object({
     /** Температура жили, для якої заданий питомий опір, °C. */

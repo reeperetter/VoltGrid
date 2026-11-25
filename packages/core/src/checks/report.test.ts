@@ -14,10 +14,19 @@ function plan() {
 }
 
 describe("звіт перевірок", () => {
-  it("без вхідних даних — лише info про відсутні дані", () => {
+  it("без вхідних даних — лише info (межа ΔU не задана, захист не задано)", () => {
     const items = buildCheckReport(plan(), pl);
-    expect(items.length).toBe(4);
-    expect(items.every((i) => i.severity === "info")).toBe(true);
+    expect(items.length).toBe(5);
+    expect(items.every((i) => i.severity !== "error")).toBe(true);
+    expect(items.filter((i) => i.check === "overload").every((i) => i.severity === "info")).toBe(true);
+  });
+
+  it("без заданих даних Ib береться з типових норм профілю", () => {
+    const p = plan();
+    const items = buildCheckReport(p, pl).filter((i) => i.check === "voltageDrop" && /типовими нормами/.test(i.text));
+    expect(items).toHaveLength(2);
+    // розетки: 6 × 300 Вт / 230 В = 7,8 А
+    expect(items[0]!.text).toContain("Ib 7,8 А");
   });
 
   it("є Ib, але межі ΔU в профілі немає → info про межу", () => {
