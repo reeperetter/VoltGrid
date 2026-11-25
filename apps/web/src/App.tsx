@@ -51,6 +51,7 @@ import {
   type Tool,
   type ToolParams,
 } from "./editor/types";
+import { isProjectEmpty, loadAutosave, saveAutosave } from "./lib/autosave";
 import { downloadBytes, downloadText, readFileText, safeFileName } from "./lib/files";
 import { buildReportHtml, openPrintableReport } from "./lib/printReport";
 import { buildXlsx } from "./lib/exportXlsx";
@@ -82,7 +83,8 @@ function toNumber(value: string, fallback: number): number {
 }
 
 export function App() {
-  const [history, setHistory] = useState(() => createHistory(newProject()));
+  const [restored] = useState(() => loadAutosave());
+  const [history, setHistory] = useState(() => createHistory(restored ?? newProject()));
   const project = history.present;
   const region = useMemo(() => getRegionProfile(project.regionId), [project.regionId]);
 
@@ -100,7 +102,9 @@ export function App() {
   const [activeGroupId, setActiveGroupId] = useState<string | undefined>();
   const [reelMode, setReelMode] = useState<ReelMode>("global");
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [status, setStatus] = useState("Готово до роботи.");
+  const [status, setStatus] = useState(
+    restored ? `Відновлено автозбережений проєкт «${restored.name}». Креслення-підкладки потрібно додати знову.` : "Готово до роботи.",
+  );
   const [cursorInfo, setCursorInfo] = useState<{ p: PointMm; scale: number } | undefined>();
 
   const level = project.levels.find((l) => l.id === activeLevelId) ?? project.levels[0];
@@ -333,6 +337,14 @@ export function App() {
     }
   };
 
+  // Автозбереження в браузерне сховище (з паузою, щоб не писати на кожен рух миші).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!saveAutosave(project)) setStatus("Автозбереження недоступне — збережіть проєкт у файл.");
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [project]);
+
   const onOpen = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -350,6 +362,9 @@ export function App() {
   };
 
   const onNew = () => {
+    if (!isProjectEmpty(project) && !window.confirm("Поточний проєкт буде замінено новим. Переконайтесь, що він збережений у файл. Продовжити?")) {
+      return;
+    }
     const fresh = newProject();
     setHistory(createHistory(fresh));
     setActiveLevelId(fresh.levels[0]?.id ?? "");
