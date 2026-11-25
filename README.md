@@ -24,3 +24,18 @@ pnpm dev         # запуск редактора на localhost
 ## Примітка про норми
 
 Регіональний профіль `pl` має статус `draft`: значення в ньому — стартові заготовки й потребують звірки з чинними нормативними документами. Програма — допоміжний інструмент і не замінює проєкт, виконаний особою з відповідними повноваженнями.
+
+## Збірка настільної версії
+
+Оболонка — Electron (`apps/desktop`). Локально:
+
+```bash
+pnpm install
+pnpm desktop:start                      # запуск у вікні Electron
+pnpm --filter @voltgrid/web build
+pnpm --filter @voltgrid/desktop dist:linux   # AppImage + deb → apps/desktop/release
+pnpm --filter @voltgrid/desktop dist:win     # NSIS-інсталятор + portable (краще збирати на Windows)
+```
+
+У GitHub: **Actions → «Збірка VoltGrid (вручну)» → Run workflow**, обрати `windows`, `linux` або `both`.
+Готові файли з'являються в розділі Artifacts запуску (зберігаються 14 днів).

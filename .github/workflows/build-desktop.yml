@@ -1,0 +1,71 @@
+name: Збірка VoltGrid (вручну)
+
+# Запускається лише вручну: Actions → «Збірка VoltGrid (вручну)» → Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Що збирати"
+        type: choice
+        default: both
+        options:
+          - both
+          - windows
+          - linux
+      run_tests:
+        description: "Запустити тести перед збіркою"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    if: ${{ inputs.target == 'windows' || inputs.target == 'both' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: ${{ inputs.run_tests }}
+        run: pnpm test
+      - run: pnpm --filter @voltgrid/web build
+      - run: pnpm --filter @voltgrid/desktop dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoltGrid-windows
+          path: |
+            apps/desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    if: ${{ inputs.target == 'linux' || inputs.target == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: ${{ inputs.run_tests }}
+        run: pnpm test
+      - run: pnpm --filter @voltgrid/web build
+      - run: pnpm --filter @voltgrid/desktop dist:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoltGrid-linux
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 14

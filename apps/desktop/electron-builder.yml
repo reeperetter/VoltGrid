@@ -1,0 +1,29 @@
+appId: com.voltgrid.app
+productName: VoltGrid
+directories:
+  output: release
+files:
+  - main.cjs
+  - dist-web/**
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: VoltGrid-${version}-win-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  executableName: voltgrid
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Office
+  syncDesktopName: true
+  maintainer: VoltGrid
+  artifactName: VoltGrid-${version}-linux-${arch}.${ext}

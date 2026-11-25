@@ -1,0 +1,24 @@
+{
+  "name": "@voltgrid/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "VoltGrid — настільна оболонка (Electron) для веб-редактора",
+  "author": "VoltGrid",
+  "main": "main.cjs",
+  "scripts": {
+    "prepare-web": "node scripts/copy-web.mjs",
+    "start": "pnpm prepare-web && electron .",
+    "dist:win": "pnpm prepare-web && electron-builder --win --x64 --publish never",
+    "dist:linux": "pnpm prepare-web && electron-builder --linux --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "desktopName": "voltgrid.desktop",
+  "homepage": "https://github.com/reeperetter/VoltGrid",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reeperetter/VoltGrid.git"
+  }
+}
