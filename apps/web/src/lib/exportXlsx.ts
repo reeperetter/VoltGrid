@@ -2,6 +2,8 @@ import {
   buildBom,
   buildCheckReport,
   calcProjectCables,
+  RISER_GROUP_ID,
+  RISER_GROUP_NAME,
   type Project,
   type ReelMode,
 } from "@voltgrid/core";
@@ -26,7 +28,10 @@ export async function buildXlsx(project: Project, region: RegionProfile, reelMod
   for (const r of buildBom(project, region, reelMode)) bom.addRow([r.section, r.name, r.unit, r.quantity, r.note]);
 
   const calc = calcProjectCables(project, region, { reelMode });
-  const groupName = new Map(project.groups.map((g) => [g.id, g.name]));
+  const groupName = new Map<string, string>([
+    ...project.groups.map((g): [string, string] => [g.id, g.name]),
+    [RISER_GROUP_ID, RISER_GROUP_NAME],
+  ]);
   const cableName = new Map(region.cableTypes.map((c) => [c.id, c.name]));
   const lines = wb.addWorksheet("Лінії");
   lines.columns = [

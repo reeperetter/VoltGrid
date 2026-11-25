@@ -102,6 +102,14 @@ export const LineSchema = z.object({
   path: z.array(PointMmSchema).optional(),
 });
 
+/** Стояк (магістраль) між щитами різних поверхів, напр. ЩР підʼїзду → квартирний щит. */
+export const RiserSchema = z.object({
+  id: z.string().min(1),
+  fromPointId: z.string().min(1),
+  toPointId: z.string().min(1),
+  cableTypeId: z.string().min(1),
+});
+
 export const ProjectSchema = z
   .object({
     schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
@@ -115,11 +123,28 @@ export const ProjectSchema = z
     points: z.array(ElectricalPointSchema),
     groups: z.array(GroupSchema),
     lines: z.array(LineSchema),
+    risers: z.array(RiserSchema).default([]),
   })
   .superRefine((project, ctx) => {
     const levelIds = new Set(project.levels.map((l) => l.id));
     const groupIds = new Set(project.groups.map((g) => g.id));
     const wallsById = new Map(project.walls.map((w) => [w.id, w]));
+
+    const pointsById = new Map(project.points.map((p) => [p.id, p]));
+    project.risers.forEach((riser, index) => {
+      const from = pointsById.get(riser.fromPointId);
+      const to = pointsById.get(riser.toPointId);
+      if (!from || !to) {
+        ctx.addIssue({ code: "custom", path: ["risers", index], message: "Стояк посилається на неіснуючу точку" });
+        return;
+      }
+      if (from.kind !== "board" || to.kind !== "board") {
+        ctx.addIssue({ code: "custom", path: ["risers", index], message: "Стояк з'єднує лише щити" });
+      }
+      if (from.levelId === to.levelId) {
+        ctx.addIssue({ code: "custom", path: ["risers", index], message: "Щити стояка мають бути на різних поверхах" });
+      }
+    });
 
     project.lines.forEach((line, index) => {
       if (!levelIds.has(line.levelId)) {
@@ -202,6 +227,7 @@ export type Opening = z.infer<typeof OpeningSchema>;
 export type ElectricalPointKind = z.infer<typeof ElectricalPointKindSchema>;
 export type ElectricalPoint = z.infer<typeof ElectricalPointSchema>;
 export type Group = z.infer<typeof GroupSchema>;
+export type Riser = z.infer<typeof RiserSchema>;
 export type Line = z.infer<typeof LineSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 
@@ -221,6 +247,7 @@ export function createEmptyProject(params: {
     points: [],
     groups: [],
     lines: [],
+    risers: [],
   };
 }
 

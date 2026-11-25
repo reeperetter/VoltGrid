@@ -1,5 +1,6 @@
 import type { RegionProfile } from "@voltgrid/regions";
 import { calcProjectCables, type ReelMode } from "./order";
+import { RISER_GROUP_ID, RISER_GROUP_NAME } from "./riser";
 import type { ElectricalPointKind, Project } from "./project";
 
 export interface BomRow {
@@ -55,7 +56,8 @@ export function buildBom(project: Project, region: RegionProfile, reelMode: Reel
     if (count > 0) rows.push({ section: "Точки", name: POINT_NAMES[kind], unit: "шт", quantity: count, note: "" });
   }
 
-  for (const group of project.groups) {
+  const groups = [...project.groups, ...(project.risers.length > 0 ? [{ id: RISER_GROUP_ID, name: RISER_GROUP_NAME }] : [])];
+  for (const group of groups) {
     const lines = calc.lines.filter((l) => l.groupId === group.id);
     if (lines.length === 0) continue;
     const total = lines.reduce((s, l) => s + l.length.totalMm, 0);

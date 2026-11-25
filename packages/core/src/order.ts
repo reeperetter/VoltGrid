@@ -1,6 +1,7 @@
 import type { CableType, RegionProfile } from "@voltgrid/regions";
 import { calcLineLength, type LengthBreakdown } from "./length";
 import type { Line, Project } from "./project";
+import { RISER_GROUP_ID, riserSegments } from "./riser";
 import { planReels, type ReelCount, type ReelPlan } from "./reels";
 
 /**
@@ -74,6 +75,20 @@ export function calcProjectCables(
       length: calcLineLength(line.segments, reservePercent),
     };
   });
+
+  for (const riser of project.risers) {
+    if (!cableById.has(riser.cableTypeId)) {
+      throw new Error(`Стояк ${riser.id}: невідомий тип кабелю ${riser.cableTypeId}`);
+    }
+    const segments = riserSegments(project, riser);
+    if (!segments) continue;
+    lines.push({
+      lineId: riser.id,
+      groupId: RISER_GROUP_ID,
+      cableTypeId: riser.cableTypeId,
+      length: calcLineLength(segments, reservePercent),
+    });
+  }
 
   const byCable = new Map<string, LineResult[]>();
   for (const line of lines) {

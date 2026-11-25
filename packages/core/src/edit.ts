@@ -1,4 +1,5 @@
 import { distanceMm, projectOnSegment, roundMm, roundPoint, type PointMm } from "./geometry";
+import { ProjectSchema } from "./project";
 import type {
   ElectricalPointKind,
   Level,
@@ -238,6 +239,18 @@ export function replaceLevelLines(
   return { ...project, lines };
 }
 
+/** Додає стояк між двома щитами; кидає помилку, якщо точки не підходять. */
+export function addRiser(
+  project: Project,
+  input: { fromPointId: string; toPointId: string; cableTypeId: string },
+): Added {
+  const id = nextId("rs", project.risers);
+  const next = { ...project, risers: [...project.risers, { id, ...input }] };
+  const parsed = ProjectSchema.safeParse(next);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Некоректний стояк");
+  return { project: next, id };
+}
+
 /** Видаляє стіну (разом з її отворами), отвір або точку за ідентифікатором. */
 export function removeById(project: Project, id: string): Project {
   if (project.walls.some((w) => w.id === id)) {
@@ -251,7 +264,14 @@ export function removeById(project: Project, id: string): Project {
     return { ...project, openings: project.openings.filter((o) => o.id !== id) };
   }
   if (project.points.some((p) => p.id === id)) {
-    return { ...project, points: project.points.filter((p) => p.id !== id) };
+    return {
+      ...project,
+      points: project.points.filter((p) => p.id !== id),
+      risers: project.risers.filter((r) => r.fromPointId !== id && r.toPointId !== id),
+    };
+  }
+  if (project.risers.some((r) => r.id === id)) {
+    return { ...project, risers: project.risers.filter((r) => r.id !== id) };
   }
   if (project.lines.some((l) => l.id === id)) {
     return { ...project, lines: project.lines.filter((l) => l.id !== id) };

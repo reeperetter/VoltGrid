@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addGroup,
+  addRiser,
   buildCheckReport,
   bomToCsv,
   buildBom,
@@ -101,6 +102,9 @@ export function App() {
   const [fitSignal, setFitSignal] = useState(0);
   const [activeGroupId, setActiveGroupId] = useState<string | undefined>();
   const [reelMode, setReelMode] = useState<ReelMode>("global");
+  const [riserFrom, setRiserFrom] = useState("");
+  const [riserTo, setRiserTo] = useState("");
+  const [riserCable, setRiserCable] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState(
     restored ? `Відновлено автозбережений проєкт «${restored.name}». Креслення-підкладки потрібно додати знову.` : "Готово до роботи.",
@@ -319,6 +323,37 @@ export function App() {
     setStatus(ok ? "Звіт відкрито для друку / збереження в PDF." : "Браузер заблокував нове вікно — дозвольте спливні вікна.");
   };
 
+  const onBuildAllRoutes = () => {
+    try {
+      let next = project;
+      const all: string[] = [];
+      for (const level of project.levels) {
+        const plan = planLevelRoutes(next, region, level.id);
+        if (plan.lines.length > 0 || next.lines.some((l) => l.levelId === level.id)) {
+          next = replaceLevelLines(next, level.id, plan.lines);
+        }
+        all.push(...plan.warnings.map((w) => `${level.name}: ${w}`));
+      }
+      const final = next;
+      apply(() => final);
+      setWarnings(all);
+      setStatus(`Траси побудовано для поверхів: ${project.levels.length}. Ліній: ${final.lines.length}.`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Не вдалося побудувати траси.");
+    }
+  };
+
+  const onAddRiser = () => {
+    try {
+      const cableTypeId = riserCable || defaultRiserCable;
+      const result = addRiser(project, { fromPointId: riserFrom, toPointId: riserTo, cableTypeId });
+      setHistory((h) => commit(h, result.project));
+      setStatus("Стояк додано.");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Не вдалося додати стояк.");
+    }
+  };
+
   const onAddLevel = () => {
     const result = addLevel(project, {
       name: `${project.levels.length + 1}-й поверх`,
@@ -394,7 +429,7 @@ export function App() {
   const levelPoints = project.points.filter((p) => p.levelId === levelId);
   const levelOpenings = project.openings.filter((o) => levelWalls.some((w) => w.id === o.wallId));
   const calc = useMemo(() => {
-    if (project.lines.length === 0) return undefined;
+    if (project.lines.length === 0 && project.risers.length === 0) return undefined;
     try {
       return calcProjectCables(project, region, { reelMode });
     } catch {
@@ -420,6 +455,18 @@ export function App() {
       }),
     }));
   };
+  const boards = useMemo(
+    () =>
+      project.points
+        .filter((p) => p.kind === "board")
+        .map((p) => ({ id: p.id, label: `${project.levels.find((l) => l.id === p.levelId)?.name ?? "?"} · щит ${p.id}` })),
+    [project.points, project.levels],
+  );
+  const defaultRiserCable =
+    region.cableTypes.find((c) => c.category === "power" && (c.crossSectionMm2 ?? 0) >= 10)?.id ??
+    region.cableTypes.find((c) => c.category === "power")?.id ??
+    "";
+  const riserLengths = new Map((calc?.lines ?? []).map((l) => [l.lineId, l.length.totalMm]));
   const selectedPointGroupId = selectedPoint?.groupId ?? "";
   const calibrationReady = !!calibration.a && !!calibration.b;
   const measuredMm =
@@ -817,6 +864,9 @@ export function App() {
             )}
             <button className="wide" onClick={onAddGroup}>Додати коло</button>
             <button className="wide primary" onClick={onBuildRoutes}>Побудувати траси поверху</button>
+            {project.levels.length > 1 && (
+              <button className="wide" onClick={onBuildAllRoutes}>Побудувати траси всіх поверхів</button>
+            )}
             {warnings.length > 0 && (
               <ul className="warnings">
                 {warnings.map((w) => (
@@ -824,6 +874,47 @@ export function App() {
                 ))}
               </ul>
             )}
+          </section>
+
+          <section>
+            <h3>Стояки між поверхами</h3>
+            {boards.length < 2 ? (
+              <p className="muted">Для стояка потрібні щити принаймні на двох поверхах.</p>
+            ) : (
+              <>
+                <label className="field">
+                  Від
+                  <select value={riserFrom} onChange={(e) => setRiserFrom(e.target.value)}>
+                    <option value="">—</option>
+                    {boards.map((b) => (<option key={b.id} value={b.id}>{b.label}</option>))}
+                  </select>
+                </label>
+                <label className="field">
+                  До
+                  <select value={riserTo} onChange={(e) => setRiserTo(e.target.value)}>
+                    <option value="">—</option>
+                    {boards.map((b) => (<option key={b.id} value={b.id}>{b.label}</option>))}
+                  </select>
+                </label>
+                <label className="field">
+                  Кабель
+                  <select value={riserCable || defaultRiserCable} onChange={(e) => setRiserCable(e.target.value)}>
+                    {region.cableTypes.filter((c) => c.category === "power").map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="wide" onClick={onAddRiser} disabled={!riserFrom || !riserTo}>Додати стояк</button>
+              </>
+            )}
+            {project.risers.map((r) => (
+              <div key={r.id} className="group-row">
+                <span />
+                <span>{r.fromPointId} → {r.toPointId}</span>
+                <span>{riserLengths.has(r.id) ? `${((riserLengths.get(r.id) ?? 0) / 1000).toFixed(2)} м` : ""}</span>
+                <button title="Видалити стояк" onClick={() => apply((p) => removeById(p, r.id))}>×</button>
+              </div>
+            ))}
           </section>
 
           <section>
