@@ -30,13 +30,20 @@ async function loadPdf(
   file: File,
   askPage: (numPages: number) => number | undefined,
 ): Promise<LoadedUnderlay> {
-  const pdfjs = await import("pdfjs-dist");
-  const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const workerUrl = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const data = new Uint8Array(await file.arrayBuffer());
   const task = pdfjs.getDocument({ data });
-  const doc = await task.promise;
+  // Якщо воркер pdf.js не запустився (старий рушій браузера тощо), promise може не завершитись —
+  // не залишаємо користувача без відповіді.
+  const doc = await Promise.race([
+    task.promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("PDF не вдалося відкрити (тайм-аут). Спробуйте інший файл або зображення.")), 30_000),
+    ),
+  ]);
 
   let pageNumber = 1;
   if (doc.numPages > 1) {
