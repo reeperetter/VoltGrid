@@ -45,7 +45,13 @@ export const RegionProfileSchema = z.object({
     /** Глибина технічної підлоги: на скільки траса по підлозі нижча за чистову підлогу, мм. */
     technicalFloorOffsetMm: z.number().int().nonnegative(),
     /** Відстань траси по підлозі від стін, мм. */
-    wallClearanceMm: z.number().int().nonnegative(),
+    /** Запас на підключення елемента (на кожному кінці лінії), мм. */
+  connectionReserveMm: z.number().int().nonnegative(),
+  /** Додаток до довжини на кожен поворот траси (радіус вигину), мм. */
+  bendAllowanceMm: z.number().int().nonnegative(),
+  /** Стіни не товстіші за це значення проходяться свердлінням (0 — ні), мм. */
+  drillMaxThicknessMm: z.number().int().nonnegative(),
+  wallClearanceMm: z.number().int().nonnegative(),
     /** Тип кабелю за замовчуванням для кола залежно від виду точок (id з cableTypes). */
     defaultCableByPointKind: z.record(z.string(), z.string()),
   }),

@@ -19,8 +19,8 @@ function dividingWall(): Wall {
     levelId: "lvl1",
     start: { xMm: 5000, yMm: -10_000 },
     end: { xMm: 5000, yMm: 10_000 },
-    thicknessMm: 120,
-    material: "drywall",
+    thicknessMm: 200,
+    material: "brick",
   };
 }
 
@@ -71,6 +71,38 @@ describe("сітка трасування", () => {
     expect(r!.path[0]).toEqual({ xMm: 5000, yMm: 1000 });
   });
 
+  it("тонка стіна (≤ 14 см) проходиться свердлінням, але двері вигідніші", () => {
+    const thin: Wall = { ...dividingWall(), thicknessMm: 120, material: "drywall" };
+    const grid = new RoutingGrid(BOUNDS, [thin], []);
+    const r = grid.route({ xMm: 1000, yMm: 1000 }, { xMm: 9000, yMm: 1000 });
+    expect(r).toBeDefined();
+    expect(r!.lengthMm).toBe(8000);
+    const withDoor = new RoutingGrid(BOUNDS, [thin], [opening("door")]).route({ xMm: 1000, yMm: 1000 }, { xMm: 9000, yMm: 1000 })!;
+    expect(withDoor.lengthMm).toBe(9400); // двері поруч (обхід 1,4 м) вигідніші за свердління
+    const none = new RoutingGrid(BOUNDS, [thin], [], { ...DEFAULT_ROUTING_OPTIONS, drillMaxThicknessMm: 0 });
+    expect(none.route({ xMm: 1000, yMm: 1000 }, { xMm: 9000, yMm: 1000 })).toBeUndefined();
+  });
+
+  it("траса не виходить за межі замкненого контуру (двері назовні не є проходом)", () => {
+    // Квартира 4×4 м з дверима в зовнішній стіні та зовнішній двір поруч.
+    const outer = (id: string, x1: number, y1: number, x2: number, y2: number): Wall => ({
+      id, levelId: "lvl1", start: { xMm: x1, yMm: y1 }, end: { xMm: x2, yMm: y2 }, thicknessMm: 300, material: "brick",
+    });
+    const walls = [outer("a", 0, 0, 4000, 0), outer("b", 4000, 0, 4000, 4000), outer("c", 4000, 4000, 0, 4000), outer("d", 0, 4000, 0, 0)];
+    const door: Opening = { id: "o9", wallId: "b", kind: "door", offsetMm: 1500, widthMm: 900, heightMm: 2100, sillMm: 0 };
+    const inside = [{ xMm: 1000, yMm: 1000 }, { xMm: 3000, yMm: 3000 }];
+    const grid = new RoutingGrid({ minXMm: -3000, minYMm: -3000, maxXMm: 7000, maxYMm: 7000 }, walls, [door], DEFAULT_ROUTING_OPTIONS, inside);
+    expect(grid.contourClosed).toBe(true);
+    const outsideCell = grid.cellOf({ xMm: 6000, yMm: 2000 });
+    expect(grid.isFree(outsideCell.ix, outsideCell.iy)).toBe(false); // надворі нічого не вільне
+    const doorStep = grid.cellOf({ xMm: 4000, yMm: 2000 });
+    expect(grid.isFree(doorStep.ix, doorStep.iy)).toBe(true); // отвір дверей усередині контуру
+    expect(grid.route(inside[0]!, inside[1]!)).toBeDefined();
+    // Незамкнений контур (немає стіни d): обмеження не застосовується.
+    const open = new RoutingGrid({ minXMm: -3000, minYMm: -3000, maxXMm: 7000, maxYMm: 7000 }, walls.slice(0, 3), [], DEFAULT_ROUTING_OPTIONS, inside);
+    expect(open.contourClosed).toBe(false);
+  });
+
   it("зайве велика область відхиляється зрозумілою помилкою", () => {
     const huge: Bounds = { minXMm: 0, minYMm: 0, maxXMm: 1_000_000, maxYMm: 1_000_000 };
     expect(() => new RoutingGrid(huge, [], [], DEFAULT_ROUTING_OPTIONS)).toThrow(/завелика/);
@@ -112,12 +144,12 @@ describe("план трас поверху", () => {
 
   it("перша ланка розеток: щит (7750; 5600) → розетка (7750; 4500)", () => {
     // Обидві точки в зоні відступу 20 см від зовнішньої стіни → траса зміщується до вільної клітинки (x = 7600):
-    // 150 + 1100 + 150 = 1400 мм маршруту, з них 1100 — пряма відстань, 300 — обхід.
-    // Вертикаль: (2400 + 150) + (300 + 150) = 3000 мм.
+    // 150 + 1100 + 150 = 1400 мм маршруту, з них 1100 — пряма відстань, 300 — обхід, + 2 повороти × 200 мм.
+    // Вертикаль: (2400 + 150 + 200) + (300 + 150 + 200) = 3400 мм.
     const sample = createSamplePlan(pl);
     const plan = planLevelRoutes(sample, pl, sample.levels[0]!.id);
     const first = plan.lines[0]!;
-    expect(first.segments).toEqual({ horizontalMm: 1100, verticalMm: 3000, detourMm: 300 });
+    expect(first.segments).toEqual({ horizontalMm: 1100, verticalMm: 3400, detourMm: 700 });
     expect(first.cableTypeId).toBe("ydyp-3x2.5");
   });
 
@@ -175,7 +207,7 @@ describe("план трас поверху", () => {
     const g = addGroup(p, { name: "Розетки" });
     p = g.project;
     // Суцільна стіна на всю область розділяє щит і розетку.
-    p = addWall(p, { levelId: lvl.id, start: { xMm: 5000, yMm: -20_000 }, end: { xMm: 5000, yMm: 20_000 }, thicknessMm: 120, material: "drywall" }).project;
+    p = addWall(p, { levelId: lvl.id, start: { xMm: 5000, yMm: -20_000 }, end: { xMm: 5000, yMm: 20_000 }, thicknessMm: 200, material: "brick" }).project;
     p = addPoint(p, { levelId: lvl.id, kind: "board", at: { xMm: 1000, yMm: 1000 }, heightMm: 2400 }).project;
     p = addPoint(p, { levelId: lvl.id, kind: "socket", at: { xMm: 9000, yMm: 1000 }, heightMm: 300, groupId: g.id }).project;
     const plan = planLevelRoutes(p, pl, lvl.id);

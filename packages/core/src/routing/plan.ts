@@ -25,6 +25,11 @@ function boundsOf(points: readonly PointMm[]): Bounds {
   };
 }
 
+/** Кількість поворотів ламаної (після спрощення кожна внутрішня вершина — поворот). */
+export function bendsOf(path: readonly PointMm[]): number {
+  return Math.max(0, path.length - 2);
+}
+
 function manhattan(a: PointMm, b: PointMm): number {
   return Math.abs(a.xMm - b.xMm) + Math.abs(a.yMm - b.yMm);
 }
@@ -51,6 +56,7 @@ export function planLevelRoutes(
   options: RoutingOptions = {
     ...DEFAULT_ROUTING_OPTIONS,
     clearanceMm: region.wiring.wallClearanceMm,
+    drillMaxThicknessMm: region.wiring.drillMaxThicknessMm,
   },
 ): RoutePlan {
   const warnings: string[] = [];
@@ -82,8 +88,13 @@ export function planLevelRoutes(
     xMm: p.xMm,
     yMm: p.yMm,
   }));
-  const grid = new RoutingGrid(boundsOf(involved), walls, openings, options);
-  const offset = region.wiring.technicalFloorOffsetMm;
+  const grid = new RoutingGrid(boundsOf(involved), walls, openings, options, involved);
+  if (!grid.contourClosed) {
+    warnings.push("Контур квартири не замкнений стінами — обмеження виходу траси назовні не застосовано.");
+  }
+  // Кінець лінії по вертикалі: підготовка під стяжку + висота елемента + запас на підключення.
+  const endMm = region.wiring.technicalFloorOffsetMm + region.wiring.connectionReserveMm;
+  const bendMm = region.wiring.bendAllowanceMm;
 
   const lines: NewLine[] = [];
 
@@ -122,8 +133,8 @@ export function planLevelRoutes(
         cableTypeId,
         segments: {
           horizontalMm,
-          verticalMm: prev.heightMm + offset + target.heightMm + offset,
-          detourMm: Math.max(0, route.lengthMm - horizontalMm),
+          verticalMm: prev.heightMm + endMm + target.heightMm + endMm,
+          detourMm: Math.max(0, route.lengthMm - horizontalMm) + bendsOf(route.path) * bendMm,
         },
         path: route.path,
       });

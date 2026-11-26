@@ -17,6 +17,9 @@
   },
   "wiring": {
     "technicalFloorOffsetMm": 150,
+    "connectionReserveMm": 200,
+    "bendAllowanceMm": 200,
+    "drillMaxThicknessMm": 140,
     "wallClearanceMm": 200,
     "defaultCableByPointKind": {
       "socket": "ydyp-3x2.5",

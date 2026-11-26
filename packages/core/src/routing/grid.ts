@@ -12,6 +12,10 @@ export interface RoutingOptions {
   maxCells: number;
   /** Радіус пошуку вільної клітинки поблизу точки, що потрапила на стіну, мм. */
   snapRadiusMm: number;
+  /** Стіни не товстіші за це значення можна проходити просвердлюванням (0 — не можна). */
+  drillMaxThicknessMm: number;
+  /** Додаткова ціна клітинки всередині такої стіни, у «клітинках». */
+  drillPenaltyCells: number;
 }
 
 export const DEFAULT_ROUTING_OPTIONS: RoutingOptions = {
@@ -20,6 +24,8 @@ export const DEFAULT_ROUTING_OPTIONS: RoutingOptions = {
   turnPenaltyCells: 4,
   maxCells: 3_000_000,
   snapRadiusMm: 3000,
+  drillMaxThicknessMm: 140,
+  drillPenaltyCells: 5,
 };
 
 export interface Bounds {
@@ -108,6 +114,10 @@ export class RoutingGrid {
   readonly originYMm: number;
   readonly cellMm: number;
   private readonly blocked: Uint8Array;
+  /** 1 — клітинка в тонкій стіні (прохід лише просвердлюванням, з доплатою). */
+  private readonly drill: Uint8Array;
+  /** false, якщо контур не замкнений і обмеження виходу назовні не застосовано. */
+  contourClosed = true;
   private readonly options: RoutingOptions;
 
   constructor(
@@ -115,6 +125,8 @@ export class RoutingGrid {
     walls: readonly Wall[],
     openings: readonly Opening[],
     options: RoutingOptions = DEFAULT_ROUTING_OPTIONS,
+    /** Точки, що мають бути всередині контуру (щит, розетки…); потрібні для перевірки замкненості. */
+    anchors: readonly PointMm[] = [],
   ) {
     this.options = options;
     this.cellMm = options.cellMm;
@@ -130,7 +142,9 @@ export class RoutingGrid {
       );
     }
     this.blocked = new Uint8Array(this.cols * this.rows);
-    this.rasterize(walls, openings);
+    this.drill = new Uint8Array(this.cols * this.rows);
+    const solid = this.rasterize(walls, openings);
+    this.blockOutside(solid, anchors);
   }
 
   private centerX(ix: number): number {
@@ -141,7 +155,9 @@ export class RoutingGrid {
     return this.originYMm + (iy + 0.5) * this.cellMm;
   }
 
-  private rasterize(walls: readonly Wall[], openings: readonly Opening[]): void {
+  /** Растеризує стіни; повертає маску «тіла» стін (без відступів і без дверей) для пошуку контуру. */
+  private rasterize(walls: readonly Wall[], openings: readonly Opening[]): Uint8Array {
+    const solid = new Uint8Array(this.cols * this.rows);
     const { clearanceMm, cellMm } = this.options;
 
     for (const wall of walls) {
@@ -157,6 +173,7 @@ export class RoutingGrid {
       const ny = ux;
       const half = wall.thicknessMm / 2 + clearanceMm;
       const ext = wall.thicknessMm / 2;
+      const thin = wall.thicknessMm <= this.options.drillMaxThicknessMm;
 
       // Коридори дверей цієї стіни: проміжки вздовж стіни, де вона прохідна.
       const corridors: [number, number][] = [];
@@ -189,11 +206,60 @@ export class RoutingGrid {
           const s = px * ux + py * uy;
           const d = px * nx + py * ny;
           if (s < -ext || s > length + ext || Math.abs(d) > half) continue;
+          if (Math.abs(d) <= ext) solid[iy * this.cols + ix] = 1;
           if (corridors.some(([s0, s1]) => s >= s0 && s <= s1)) continue;
-          this.blocked[iy * this.cols + ix] = 1;
+          const idx = iy * this.cols + ix;
+          if (thin) this.drill[idx] = 1;
+          else this.blocked[idx] = 1;
         }
       }
     }
+    // Клітинка, яку блокує товста стіна, не може бути «просвердлюваною».
+    for (let i = 0; i < this.blocked.length; i++) if (this.blocked[i]) this.drill[i] = 0;
+    return solid;
+  }
+
+  /**
+   * Усе, що лежить зовні замкненого контуру стін (двері не рахуються проходом), блокується:
+   * траса не виходить за межі квартири. Якщо контур не замкнений (якась точка «назовні») —
+   * обмеження не застосовується, contourClosed = false.
+   */
+  private blockOutside(solid: Uint8Array, anchors: readonly PointMm[]): void {
+    const { cols, rows } = this;
+    const outside = new Uint8Array(cols * rows);
+    const stack: number[] = [];
+    const push = (ix: number, iy: number) => {
+      const i = iy * cols + ix;
+      if (outside[i] || solid[i]) return;
+      outside[i] = 1;
+      stack.push(i);
+    };
+    for (let ix = 0; ix < cols; ix++) {
+      push(ix, 0);
+      push(ix, rows - 1);
+    }
+    for (let iy = 0; iy < rows; iy++) {
+      push(0, iy);
+      push(cols - 1, iy);
+    }
+    while (stack.length > 0) {
+      const i = stack.pop() as number;
+      const ix = i % cols;
+      const iy = (i - ix) / cols;
+      if (ix > 0) push(ix - 1, iy);
+      if (ix < cols - 1) push(ix + 1, iy);
+      if (iy > 0) push(ix, iy - 1);
+      if (iy < rows - 1) push(ix, iy + 1);
+    }
+    const anyAnchorOutside = anchors.some((a) => {
+      const { ix, iy } = this.cellOf(a);
+      return ix >= 0 && iy >= 0 && ix < cols && iy < rows && outside[iy * cols + ix] === 1;
+    });
+    if (anyAnchorOutside || anchors.length === 0) {
+      this.contourClosed = anchors.length === 0 ? true : false;
+      return;
+    }
+    for (let i = 0; i < outside.length; i++) if (outside[i]) this.blocked[i] = 1;
   }
 
   isFree(ix: number, iy: number): boolean {
@@ -262,6 +328,7 @@ export class RoutingGrid {
   private search(sx: number, sy: number, gx: number, gy: number): [number, number][] | undefined {
     const { cols, rows } = this;
     const turnCost = this.options.turnPenaltyCells * STEP_COST;
+    const drillCost = this.options.drillPenaltyCells * STEP_COST;
     const stateCount = cols * rows * 5;
     const g = new Int32Array(stateCount).fill(0x7fffffff);
     const parent = new Int32Array(stateCount).fill(-1);
@@ -295,7 +362,8 @@ export class RoutingGrid {
         const nx = ix + ddx;
         const ny = iy + ddy;
         if (!this.isFree(nx, ny)) continue;
-        const cost = STEP_COST + (dir !== NO_DIR && dir !== nd ? turnCost : 0);
+        const cost =
+          STEP_COST + (dir !== NO_DIR && dir !== nd ? turnCost : 0) + (this.drill[ny * cols + nx] ? drillCost : 0);
         const next = (ny * cols + nx) * 5 + nd;
         const ng = (g[state] as number) + cost;
         if (ng < (g[next] as number)) {

@@ -611,7 +611,7 @@ export function App() {
                 setSelectedId(undefined);
                 setSelectedIds(base.includes(id) ? base.filter((x) => x !== id) : [...base, id]);
               }}
-              onEditLinePath={(id, path) => apply((p) => setLinePath(p, id, path))}
+              onEditLinePath={(id, path) => apply((p) => setLinePath(p, id, path, region.wiring.bendAllowanceMm))}
               onMovePoint={(id, to) => apply((p) => movePoint(p, id, to))}
               onCalibrationPoint={onCalibrationPoint}
               onCursor={(p, scale) => setCursorInfo(p ? { p, scale } : undefined)}

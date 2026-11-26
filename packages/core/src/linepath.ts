@@ -66,7 +66,12 @@ export function moveSegment(
 }
 
 /** Записує нову ламану лінії й перераховує обхід (горизонталь і вертикаль не змінюються). */
-export function setLinePath(project: Project, lineId: string, path: readonly PointMm[]): Project {
+export function setLinePath(
+  project: Project,
+  lineId: string,
+  path: readonly PointMm[],
+  bendAllowanceMm = 0,
+): Project {
   return {
     ...project,
     lines: project.lines.map((l) => {
@@ -78,7 +83,7 @@ export function setLinePath(project: Project, lineId: string, path: readonly Poi
       return {
         ...l,
         path: [...path],
-        segments: { ...l.segments, horizontalMm: direct, detourMm: Math.max(0, pathLengthMm(path) - direct) },
+        segments: { ...l.segments, horizontalMm: direct, detourMm: Math.max(0, pathLengthMm(path) - direct) + Math.max(0, path.length - 2) * bendAllowanceMm },
       };
     }),
   };
