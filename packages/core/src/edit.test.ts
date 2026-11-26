@@ -190,3 +190,31 @@ describe("історія змін", () => {
     expect(commit(h, h.present)).toBe(h);
   });
 });
+
+describe("групові операції з точками", () => {
+  it("зсув, копіювання (без щитів), призначення кола, видалення", async () => {
+    const { movePointsBy, duplicatePoints, setPointsGroup, removePoints, addGroup } = await import("./edit");
+    const plan = createSamplePlan(pl);
+    const sockets = plan.points.filter((p) => p.kind === "socket").map((p) => p.id);
+    const board = plan.points.find((p) => p.kind === "board")!;
+
+    const moved = movePointsBy(plan, sockets, 100, -50);
+    expect(moved.points.find((p) => p.id === sockets[0])!.xMm).toBe(plan.points.find((p) => p.id === sockets[0])!.xMm + 100);
+
+    const dup = duplicatePoints(plan, [...sockets, board.id], 500, 0);
+    expect(dup.ids).toHaveLength(sockets.length);
+    expect(dup.project.points).toHaveLength(plan.points.length + sockets.length);
+    expect(new Set(dup.project.points.map((p) => p.id)).size).toBe(dup.project.points.length);
+
+    const g = addGroup(plan, { name: "Нове" });
+    const grouped = setPointsGroup(g.project, [...sockets, board.id], g.id);
+    expect(grouped.points.filter((p) => p.groupId === g.id)).toHaveLength(sockets.length);
+    expect(grouped.points.find((p) => p.id === board.id)!.groupId).toBeUndefined();
+    const ungrouped = setPointsGroup(grouped, sockets, undefined);
+    expect("groupId" in ungrouped.points.find((p) => p.id === sockets[0])!).toBe(false);
+
+    const removed = removePoints(plan, sockets);
+    expect(removed.points).toHaveLength(plan.points.length - sockets.length);
+    expect(ProjectSchema.safeParse(removed).success).toBe(true);
+  });
+});

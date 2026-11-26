@@ -239,6 +239,59 @@ export function replaceLevelLines(
   return { ...project, lines };
 }
 
+/** Зсуває набір точок на (dx, dy) мм. */
+export function movePointsBy(project: Project, ids: readonly string[], dx: number, dy: number): Project {
+  const set = new Set(ids);
+  return {
+    ...project,
+    points: project.points.map((p) =>
+      set.has(p.id) ? { ...p, xMm: roundMm(p.xMm + dx), yMm: roundMm(p.yMm + dy) } : p,
+    ),
+  };
+}
+
+/** Копіює точки зі зсувом; щити не копіюються. Повертає нову версію й ідентифікатори копій. */
+export function duplicatePoints(
+  project: Project,
+  ids: readonly string[],
+  dx: number,
+  dy: number,
+): { project: Project; ids: string[] } {
+  const set = new Set(ids);
+  const points = [...project.points];
+  const created: string[] = [];
+  for (const src of project.points) {
+    if (!set.has(src.id) || src.kind === "board") continue;
+    const id = nextId("pt", points);
+    points.push({ ...src, id, xMm: roundMm(src.xMm + dx), yMm: roundMm(src.yMm + dy) });
+    created.push(id);
+  }
+  return { project: { ...project, points }, ids: created };
+}
+
+/** Призначає коло (або знімає, якщо undefined) набору точок; щити пропускаються. */
+export function setPointsGroup(project: Project, ids: readonly string[], groupId: string | undefined): Project {
+  const set = new Set(ids);
+  return {
+    ...project,
+    points: project.points.map((p) => {
+      if (!set.has(p.id) || p.kind === "board") return p;
+      const { groupId: _old, ...rest } = p;
+      return groupId === undefined ? rest : { ...rest, groupId };
+    }),
+  };
+}
+
+/** Видаляє кілька точок (і стояки, що на них спиралися). */
+export function removePoints(project: Project, ids: readonly string[]): Project {
+  const set = new Set(ids);
+  return {
+    ...project,
+    points: project.points.filter((p) => !set.has(p.id)),
+    risers: project.risers.filter((r) => !set.has(r.fromPointId) && !set.has(r.toPointId)),
+  };
+}
+
 /** Додає стояк між двома щитами; кидає помилку, якщо точки не підходять. */
 export function addRiser(
   project: Project,

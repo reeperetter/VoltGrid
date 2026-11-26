@@ -58,6 +58,8 @@ export interface EditorCanvasProps {
   tool: Tool;
   options: EditorOptions;
   selectedId: string | undefined;
+  /** Додатково вибрані точки (рамкою або Shift-клік). */
+  selectedIds: readonly string[];
   calibration: CalibrationState;
   /** Збільшується, коли треба «показати все». */
   fitSignal: number;
@@ -67,6 +69,9 @@ export interface EditorCanvasProps {
   /** Ідентифікатор кола, лінії якого підсвічуються. */
   activeGroupId?: string | undefined;
   onSelect: (id: string | undefined) => void;
+  /** Вибір точок рамкою; additive — додати до вже вибраних. */
+  onSelectMany: (ids: string[], additive: boolean) => void;
+  onToggle: (id: string) => void;
   onEditLinePath: (lineId: string, path: PointMm[]) => void;
   onMovePoint: (id: string, to: PointMm) => void;
   onCalibrationPoint: (p: PointMm) => void;
@@ -80,7 +85,7 @@ function isTyping(target: EventTarget | null): boolean {
 
 export function EditorCanvas(props: EditorCanvasProps) {
   const {
-    project, levelId, underlay, underlayMmPerPx, tool, options, selectedId, calibration, fitSignal,
+    project, levelId, underlay, underlayMmPerPx, tool, options, selectedId, selectedIds, calibration, fitSignal,
   } = props;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -195,6 +200,34 @@ export function EditorCanvas(props: EditorCanvasProps) {
     [endpoints, options.grid, options.gridMm, options.ortho, view.scale],
   );
 
+  const [band, setBand] = useState<{ a: PointMm; b: PointMm } | undefined>();
+  const justBanded = useRef(false);
+
+  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (tool !== "select" || e.evt.button !== 0) return;
+    const stage = e.target.getStage();
+    if (!stage || e.target !== stage) return;
+    const p = worldFromPointer(stage);
+    if (p) setBand({ a: p, b: p });
+  };
+
+  const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!band) return;
+    const stage = e.target.getStage();
+    const end = stage ? worldFromPointer(stage) : undefined;
+    const a = band.a;
+    const b = end ?? band.b;
+    setBand(undefined);
+    if (Math.abs(b.xMm - a.xMm) * view.scale < 4 && Math.abs(b.yMm - a.yMm) * view.scale < 4) return;
+    justBanded.current = true;
+    const x1 = Math.min(a.xMm, b.xMm);
+    const x2 = Math.max(a.xMm, b.xMm);
+    const y1 = Math.min(a.yMm, b.yMm);
+    const y2 = Math.max(a.yMm, b.yMm);
+    const ids = points.filter((p) => p.xMm >= x1 && p.xMm <= x2 && p.yMm >= y1 && p.yMm <= y2).map((p) => p.id);
+    props.onSelectMany(ids, e.evt.shiftKey);
+  };
+
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button !== 0) return;
     const stage = e.target.getStage();
@@ -204,7 +237,15 @@ export function EditorCanvas(props: EditorCanvasProps) {
 
     switch (tool) {
       case "select": {
+        if (justBanded.current) {
+          justBanded.current = false;
+          break;
+        }
         const id = e.target === stage ? undefined : e.target.id() || undefined;
+        if (e.evt.shiftKey && id && points.some((p) => p.id === id)) {
+          props.onToggle(id);
+          break;
+        }
         props.onSelect(id);
         break;
       }
@@ -240,6 +281,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
     const stage = e.target.getStage();
     if (!stage) return;
     const p = worldFromPointer(stage);
+    if (band && p) setBand({ a: band.a, b: p });
     setCursor(p);
     props.onCursor(p ? roundPoint(p) : undefined, view.scale);
   };
@@ -277,6 +319,8 @@ export function EditorCanvas(props: EditorCanvasProps) {
               setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
             }
           }}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
           onClick={handleClick}
           onContextMenu={(e) => {
             e.evt.preventDefault();
@@ -364,7 +408,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
               <PointShape
                 key={p.id}
                 point={p}
-                selected={p.id === selectedId}
+                selected={p.id === selectedId || selectedIds.includes(p.id)}
                 draggable={tool === "select"}
                 px={px}
                 onDragEnd={(to) => props.onMovePoint(p.id, options.grid ? snapToGrid(to, options.gridMm) : to)}
@@ -373,6 +417,18 @@ export function EditorCanvas(props: EditorCanvasProps) {
           </Layer>
 
           <Layer listening={false}>
+            {band && (
+              <Rect
+                x={Math.min(band.a.xMm, band.b.xMm)}
+                y={Math.min(band.a.yMm, band.b.yMm)}
+                width={Math.abs(band.b.xMm - band.a.xMm)}
+                height={Math.abs(band.b.yMm - band.a.yMm)}
+                fill="rgba(37,99,235,0.12)"
+                stroke={ACCENT}
+                strokeWidth={1.5 * px}
+                dash={[6 * px, 4 * px]}
+              />
+            )}
             {wallStart && previewEnd && (
               <>
                 <Line

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addGroup,
+  duplicatePoints,
+  movePointsBy,
+  removePoints,
+  setPointsGroup,
   addRiser,
   buildCheckReport,
   bomToCsv,
@@ -92,6 +96,7 @@ export function App() {
   const [activeLevelId, setActiveLevelId] = useState(() => project.levels[0]?.id ?? "");
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [options, setOptions] = useState<EditorOptions>(DEFAULT_OPTIONS);
   const [toolParams, setToolParams] = useState<ToolParams>(DEFAULT_TOOL_PARAMS);
   const [underlays, setUnderlays] = useState<Record<string, LoadedUnderlay>>({});
@@ -124,19 +129,62 @@ export function App() {
   const doUndo = useCallback(() => setHistory((h) => undo(h)), []);
   const doRedo = useCallback(() => setHistory((h) => redo(h)), []);
 
-  // Гарячі клавіші: Delete, Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z.
+  const clearSelection = () => {
+    setSelectedId(undefined);
+    setSelectedIds([]);
+  };
+
+  /** Усі вибрані точки: набір (рамка / Shift) або одна вибрана точка. */
+  const pointSelection = useMemo(() => {
+    if (selectedIds.length > 0) return selectedIds;
+    const single = project.points.find((p) => p.id === selectedId);
+    return single ? [single.id] : [];
+  }, [selectedIds, selectedId, project.points]);
+
+  const onDuplicateSelection = useCallback(() => {
+    if (pointSelection.length === 0) return;
+    const step = Math.max(options.gridMm, 100) * 5;
+    const result = duplicatePoints(project, pointSelection, step, 0);
+    if (result.ids.length === 0) return;
+    setHistory((h) => commit(h, result.project));
+    setSelectedId(undefined);
+    setSelectedIds(result.ids);
+    setStatus(`Скопійовано точок: ${result.ids.length} (зсув ${step} мм праворуч).`);
+  }, [pointSelection, project, options.gridMm]);
+
+  // Гарячі клавіші: Delete, Ctrl+Z/Y, Ctrl+A (усі точки поверху), Ctrl+D (копія), стрілки (зсув), Esc.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === "z") {
+      const key = e.key.toLowerCase();
+      if (mod && key === "z") {
         e.preventDefault();
         if (e.shiftKey) doRedo();
         else doUndo();
-      } else if (mod && e.key.toLowerCase() === "y") {
+      } else if (mod && key === "y") {
         e.preventDefault();
         doRedo();
+      } else if (mod && key === "a") {
+        e.preventDefault();
+        setSelectedId(undefined);
+        setSelectedIds(project.points.filter((p) => p.levelId === activeLevelId).map((p) => p.id));
+      } else if (mod && key === "d") {
+        e.preventDefault();
+        onDuplicateSelection();
+      } else if (e.key === "Escape") {
+        clearSelection();
+      } else if (e.key.startsWith("Arrow") && pointSelection.length > 0) {
+        e.preventDefault();
+        const step = options.gridMm * (e.shiftKey ? 10 : 1);
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        apply((p) => movePointsBy(p, pointSelection, dx, dy));
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
+        e.preventDefault();
+        apply((p) => removePoints(p, selectedIds));
+        setSelectedIds([]);
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         e.preventDefault();
         apply((p) => removeById(p, selectedId));
@@ -145,7 +193,18 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [apply, doRedo, doUndo, selectedId]);
+  }, [apply, doRedo, doUndo, selectedId, selectedIds, pointSelection, project.points, activeLevelId, options.gridMm, onDuplicateSelection]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeLevelId]);
+
+  // Прибираємо з набору точки, яких уже немає (undo, видалення).
+  useEffect(() => {
+    if (selectedIds.length === 0) return;
+    const alive = selectedIds.filter((id) => project.points.some((p) => p.id === id));
+    if (alive.length !== selectedIds.length) setSelectedIds(alive);
+  }, [project.points, selectedIds]);
 
   // Якщо виділений елемент зник (undo, видалення стіни) — знімаємо виділення.
   useEffect(() => {
@@ -538,7 +597,20 @@ export function App() {
               onAddPoint={onAddPoint}
               onAddOpening={onAddOpening}
               activeGroupId={activeGroupId}
-              onSelect={setSelectedId}
+              selectedIds={selectedIds}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setSelectedIds([]);
+              }}
+              onSelectMany={(ids, additive) => {
+                setSelectedId(undefined);
+                setSelectedIds((prev) => (additive ? [...new Set([...prev, ...ids])] : ids));
+              }}
+              onToggle={(id) => {
+                const base = selectedIds.length > 0 ? selectedIds : selectedId ? [selectedId] : [];
+                setSelectedId(undefined);
+                setSelectedIds(base.includes(id) ? base.filter((x) => x !== id) : [...base, id]);
+              }}
               onEditLinePath={(id, path) => apply((p) => setLinePath(p, id, path))}
               onMovePoint={(id, to) => apply((p) => movePoint(p, id, to))}
               onCalibrationPoint={onCalibrationPoint}
@@ -747,7 +819,42 @@ export function App() {
 
           <section>
             <h3>Вибране</h3>
-            {!selectedId && <p className="muted">Нічого не вибрано.</p>}
+            {selectedIds.length > 0 && (
+              <div className="callout">
+                <p>Вибрано точок: {selectedIds.length}</p>
+                <label className="field">
+                  Коло
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") return;
+                      apply((p) => setPointsGroup(p, selectedIds, v === "__none__" ? undefined : v));
+                    }}
+                  >
+                    <option value="">— призначити коло —</option>
+                    <option value="__none__">без кола</option>
+                    {project.groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="wide" onClick={onDuplicateSelection}>Копіювати (Ctrl+D)</button>
+                <button
+                  className="wide danger"
+                  onClick={() => {
+                    apply((p) => removePoints(p, selectedIds));
+                    setSelectedIds([]);
+                  }}
+                >
+                  Видалити вибрані
+                </button>
+                <p className="muted">Стрілки — зсув на крок сітки (Shift — ×10), Esc — зняти вибір.</p>
+              </div>
+            )}
+            {!selectedId && selectedIds.length === 0 && (
+              <p className="muted">Нічого не вибрано. Рамкою або Shift-кліком можна вибрати кілька точок.</p>
+            )}
             {selectedWall && (
               <p>
                 Стіна · {WALL_MATERIAL_LABELS[selectedWall.material]}, {selectedWall.thicknessMm} мм ·
