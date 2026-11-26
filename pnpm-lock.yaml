@@ -26,6 +26,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@mlightcad/libredwg-web':
+        specifier: ^0.9.4
+        version: 0.9.4
       '@voltgrid/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -157,6 +160,10 @@ packages:
   '@malept/flatpak-bundler@0.4.0':
     resolution: {integrity: sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q==}
     engines: {node: '>= 10.0.0'}
+
+  '@mlightcad/libredwg-web@0.9.4':
+    resolution: {integrity: sha512-wBgEatCasp775UftBTU+1s4LIym0ozNqhl7G1eUIu+BtKYDKV4YbA+gKBhkkxYDOVKxfXHP2Gt6eQtGWRN9BRQ==}
+    engines: {node: '>=20'}
 
   '@napi-rs/canvas-android-arm64@1.2.0':
     resolution: {integrity: sha512-Ya2Db4BrwM5WnQtdmA2iOw5O2yZ9vcd5fuX9GjlkQ3k87iWzDUxnijVz11IJrF8c+xBxUHzEgENXmA1yPdnZ2g==}
@@ -2401,6 +2408,8 @@ snapshots:
       tmp-promise: 3.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@mlightcad/libredwg-web@0.9.4': {}
 
   '@napi-rs/canvas-android-arm64@1.2.0':
     optional: true

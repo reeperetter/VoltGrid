@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mlightcad/libredwg-web": "^0.9.4",
     "@voltgrid/core": "workspace:*",
     "@voltgrid/regions": "workspace:*",
     "exceljs": "^4.4.0",

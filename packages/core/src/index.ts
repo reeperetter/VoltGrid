@@ -11,3 +11,4 @@ export * from "./routing";
 export * from "./linepath";
 export * from "./bom";
 export * from "./riser";
+export * from "./apartment/count";
