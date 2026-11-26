@@ -12,3 +12,7 @@ export * from "./linepath";
 export * from "./bom";
 export * from "./riser";
 export * from "./apartment/count";
+export * from "./apartment/regions";
+export * from "./apartment/report";
+export * from "./cad/plan";
+export * from "./apartment/columns";

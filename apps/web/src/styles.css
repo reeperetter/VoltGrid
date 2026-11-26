@@ -131,3 +131,19 @@ button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
 .checks .sev-info { color: #6b7280; }
 .checks .sev-warn { color: #b45309; }
 .checks .sev-error { color: #b91c1c; font-weight: 600; }
+
+.view-switch { display: flex; gap: 0; margin: 0 12px; }
+.view-switch button { border-radius: 0; }
+.view-switch button.active { background: #2f6fed; color: #fff; }
+.floor-view { padding: 12px 16px; overflow: auto; flex: 1; min-height: 0; }
+.floor-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.floor-error { color: #b00020; }
+.floor-warnings { color: #8a5a00; background: #fff6e0; padding: 8px 8px 8px 28px; border-radius: 4px; }
+.floor-hint { max-width: 60ch; color: #555; }
+.floor-table-wrap { overflow: auto; max-height: calc(100vh - 170px); }
+.floor-table { border-collapse: collapse; font-size: 12px; }
+.floor-table th, .floor-table td { border: 1px solid #ccc; padding: 3px 6px; text-align: center; white-space: nowrap; }
+.floor-table thead th { position: sticky; top: 0; background: #eef1f6; white-space: normal; min-width: 70px; }
+.floor-table tfoot th { background: #eef1f6; position: sticky; bottom: 0; }
+.floor-table tr.has-warning td { background: #fff6e0; }
+.floor-table td:last-child { text-align: left; white-space: normal; min-width: 280px; max-width: 420px; }

@@ -60,6 +60,7 @@ import { isProjectEmpty, loadAutosave, saveAutosave } from "./lib/autosave";
 import { downloadBytes, downloadText, readFileText, safeFileName } from "./lib/files";
 import { buildReportHtml, openPrintableReport } from "./lib/printReport";
 import { buildXlsx } from "./lib/exportXlsx";
+import { FloorView } from "./FloorView";
 import { guessMmPerPx, loadUnderlay } from "./lib/underlay";
 
 const REGION_ID = "pl";
@@ -94,6 +95,7 @@ export function App() {
   const region = useMemo(() => getRegionProfile(project.regionId), [project.regionId]);
 
   const [activeLevelId, setActiveLevelId] = useState(() => project.levels[0]?.id ?? "");
+  const [view, setView] = useState<"floor" | "editor">("floor");
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -535,6 +537,10 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <strong className="brand">VoltGrid</strong>
+        <div className="view-switch" role="tablist" aria-label="Режим">
+          <button role="tab" aria-selected={view === "floor"} className={view === "floor" ? "active" : undefined} onClick={() => setView("floor")}>Поверх з DWG</button>
+          <button role="tab" aria-selected={view === "editor"} className={view === "editor" ? "active" : undefined} onClick={() => setView("editor")}>Редактор</button>
+        </div>
         <input
           className="project-name"
           value={project.name}
@@ -567,7 +573,8 @@ export function App() {
         </div>
       </header>
 
-      <div className="workspace">
+      {view === "floor" && <FloorView />}
+      <div className="workspace" style={view === "floor" ? { display: "none" } : undefined}>
         <nav className="toolbar" aria-label="Інструменти">
           {TOOLS.map((t) => (
             <button
