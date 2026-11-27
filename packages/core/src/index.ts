@@ -20,3 +20,4 @@ export * from "./cad/pdfPlan";
 export * from "./apartment/elements";
 export * from "./apartment/routing";
 export * from "./apartment/board";
+export * from "./apartment/floorRouting";

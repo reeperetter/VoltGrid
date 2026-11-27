@@ -3,7 +3,8 @@ import {
   BARRIER_LAYERS,
   KIND_LABEL,
   extractElements,
-  routeApartment,
+  routeOne,
+  routeFloor,
   type ApartmentRoutes,
   type ElementKind,
   type FloorReport,
@@ -31,14 +32,16 @@ interface Props {
   report: FloorReport;
   selected: number | undefined;
   onSelect: (index: number | undefined) => void;
+  routes: Record<number, ApartmentRoutes>;
+  onRoutes: (r: Record<number, ApartmentRoutes>) => void;
 }
 
 /** Креслення поверху: панорамування/масштаб, квартири, елементи, підсвічування однакових символів, траси. */
-export function PlanView({ plan, report, selected, onSelect }: Props) {
+export function PlanView({ plan, report, selected, onSelect, routes, onRoutes }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState({ s: 0.02, ox: 0, oy: 0 });
   const [kind, setKind] = useState<ElementKind>();
-  const [routes, setRoutes] = useState<Record<number, ApartmentRoutes>>({});
+  const [routingAll, setRoutingAll] = useState(false);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   const walls = useMemo(() => plan.lines.filter((l) => BARRIER_LAYERS.includes(l.layer)), [plan]);
@@ -111,8 +114,7 @@ export function PlanView({ plan, report, selected, onSelect }: Props) {
       }
     });
     // Траси вибраної квартири.
-    const rt = selected ? routes[selected] : undefined;
-    if (rt) {
+    for (const rt of Object.values(routes)) {
       for (const leg of rt.legs) {
         g.lineWidth = leg.conduit === 32 ? 4 : leg.conduit === 25 ? 3 : 1.5;
         g.strokeStyle = circuitColor(leg.circuit);
@@ -175,10 +177,15 @@ export function PlanView({ plan, report, selected, onSelect }: Props) {
 
   function runRouting() {
     if (!selected) return;
-    const i = selected - 1;
-    const r = report.regions[i]!;
-    const win = plan.lines.filter((l) => l.layer.startsWith("A-GLAZ") && r.owns(l.x1, l.y1));
-    setRoutes((p) => ({ ...p, [selected]: routeApartment(r.mask, elements[i]!, win) }));
+    onRoutes({ ...routes, [selected]: routeOne(plan, report, selected - 1) });
+  }
+
+  async function runAll() {
+    setRoutingAll(true);
+    await new Promise((r) => setTimeout(r, 30));
+    const all = routeFloor(plan, report);
+    onRoutes(Object.fromEntries(all.map((x, i) => [i + 1, x])));
+    setRoutingAll(false);
   }
 
   const countAll = kind ? allElements.filter((e) => e.kind === kind).length : 0;
@@ -234,7 +241,8 @@ export function PlanView({ plan, report, selected, onSelect }: Props) {
           </p>
         )}
         <h3>Квартира {selected ?? "—"}</h3>
-        <button disabled={!selected} onClick={runRouting}>Прокласти траси</button>
+        <button disabled={!selected} onClick={runRouting}>Прокласти траси</button>{" "}
+        <button disabled={routingAll} onClick={() => void runAll()}>{routingAll ? "Прокладаю…" : "Прокласти для всього поверху"}</button>
         {!selected && <p className="floor-hint">Клікніть по квартирі на плані або по рядку таблиці.</p>}
         {rt && (
           <>

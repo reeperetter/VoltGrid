@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { buildFloorReport, REPORT_COLUMNS, type FloorReport, type PlanData } from "@voltgrid/core";
+import { buildFloorReport, REPORT_COLUMNS, type ApartmentRoutes, type FloorReport, type PlanData } from "@voltgrid/core";
 import { PlanView } from "./PlanView";
 import { downloadBytes } from "./lib/files";
 import { readDwgPlan } from "./lib/dwg";
@@ -11,6 +11,7 @@ export function FloorView() {
   const [report, setReport] = useState<FloorReport>();
   const [plan, setPlan] = useState<PlanData>();
   const [selected, setSelected] = useState<number>();
+  const [routes, setRoutes] = useState<Record<number, ApartmentRoutes>>({});
   const [tab, setTab] = useState<"plan" | "table">("plan");
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +32,7 @@ export function FloorView() {
       await new Promise((r) => setTimeout(r, 30));
       setPlan(plan);
       setSelected(undefined);
+      setRoutes({});
       setReport(buildFloorReport(plan));
       setFileName(file.name);
     } catch (e) {
@@ -42,7 +44,7 @@ export function FloorView() {
 
   async function onExport() {
     if (!report) return;
-    const bytes = await buildFloorXlsx(report, fileName);
+    const bytes = await buildFloorXlsx(report, fileName, routes);
     downloadBytes(
       fileName.replace(/\.dwg$/i, "") + "-mieszkania.xlsx",
       bytes,
@@ -108,7 +110,7 @@ export function FloorView() {
           <button className={tab === "table" ? "active" : undefined} onClick={() => setTab("table")}>Таблиця</button>
         </div>
       )}
-      {report && plan && tab === "plan" && <PlanView plan={plan} report={report} selected={selected} onSelect={setSelected} />}
+      {report && plan && tab === "plan" && <PlanView plan={plan} report={report} selected={selected} onSelect={setSelected} routes={routes} onRoutes={setRoutes} />}
       {report && tab === "table" && (
         <div className="floor-table-wrap">
           <table className="floor-table">
