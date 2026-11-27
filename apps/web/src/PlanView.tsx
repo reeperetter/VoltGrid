@@ -113,8 +113,8 @@ export function PlanView({ plan, report, selected, onSelect }: Props) {
     // Траси вибраної квартири.
     const rt = selected ? routes[selected] : undefined;
     if (rt) {
-      g.lineWidth = 2;
       for (const leg of rt.legs) {
+        g.lineWidth = leg.conduit === 32 ? 4 : leg.conduit === 25 ? 3 : 1.5;
         g.strokeStyle = circuitColor(leg.circuit);
         g.beginPath();
         leg.path.forEach((pt, i) => {
@@ -255,6 +255,12 @@ export function PlanView({ plan, report, selected, onSelect }: Props) {
                 <tr><th colSpan={2}>Разом</th><th>{(rt.totalMm / 1000).toFixed(1)}</th></tr>
               </tfoot>
             </table>
+            <p>
+              Труби: fi20 — {(rt.byConduit[20] / 1000).toFixed(1)} м, fi25 — {(rt.byConduit[25] / 1000).toFixed(1)} м, fi32 — {(rt.byConduit[32] / 1000).toFixed(1)} м
+              <br />
+              <small>(товщина лінії на плані: тонка fi20, середня fi25, товста fi32)</small>
+            </p>
+            {rt.boardNotes.length > 0 && <p className="floor-error">Щит: {rt.boardNotes.join("; ")}</p>}
             {rt.unreached.length > 0 && <p className="floor-error">Не досягнуто: {rt.unreached.join(", ")}</p>}
             <p className="floor-hint">
               Довжини: горизонталь по A* + спуски до висот кріплення + запаси на кінцях/поворотах, +10 %. Тонкі стіни (≤14 см) проходяться свердлінням; біля вікон тримається відступ 20 см.

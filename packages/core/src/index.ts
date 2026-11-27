@@ -19,3 +19,4 @@ export * from "./apartment/columns";
 export * from "./cad/pdfPlan";
 export * from "./apartment/elements";
 export * from "./apartment/routing";
+export * from "./apartment/board";

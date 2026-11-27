@@ -24,3 +24,13 @@ describe("routeApartment", () => {
     expect(res.byCircuit["7"]!.lengthMm).toBeGreaterThan(5000);
   });
 });
+
+import { pickConduit } from "./board";
+describe("pickConduit", () => {
+  it("підбирає fi за площею кабелів", () => {
+    expect(pickConduit(65).fi).toBe(20);
+    expect(pickConduit(100).fi).toBe(25);
+    expect(pickConduit(200).fi).toBe(32);
+    expect(pickConduit(900).overfull).toBe(true);
+  });
+});

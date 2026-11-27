@@ -1,5 +1,6 @@
 import type { PlanElement } from "./elements";
 import type { Barrier, RegionMask } from "./regions";
+import { CONDUIT_FILL, DEFAULT_BOARD, pickConduit, type BoardCircuit } from "./board";
 
 export interface ApartmentRoutingOptions {
   /** Мінімальна відстань траси від стіни, мм. */
@@ -45,6 +46,8 @@ export interface RouteLeg {
   drills: number;
   /** Довжина з вертикалями, вигинами й запасом, мм. */
   lengthMm: number;
+  /** Діаметр труби fi20/25/32 за заповненням (кабелі інших кіл у тих самих клітинках враховано). */
+  conduit: 20 | 25 | 32;
 }
 
 export interface ApartmentRoutes {
@@ -52,6 +55,10 @@ export interface ApartmentRoutes {
   byCircuit: Record<string, { lengthMm: number; horizontalMm: number; legs: number }>;
   totalMm: number;
   unreached: string[];
+  /** Довжина труби (горизонталь по трасі), мм, за діаметрами. */
+  byConduit: Record<20 | 25 | 32, number>;
+  /** Зауваження щодо відповідності плану схемі щита. */
+  boardNotes: string[];
 }
 
 class MinHeap {
@@ -132,6 +139,7 @@ export function routeApartment(
   elements: readonly PlanElement[],
   windows: readonly Barrier[],
   options: Partial<ApartmentRoutingOptions> = {},
+  board: readonly BoardCircuit[] = DEFAULT_BOARD,
 ): ApartmentRoutes {
   const o = { ...DEFAULT_APARTMENT_ROUTING, ...options, heightsMm: { ...DEFAULT_APARTMENT_ROUTING.heightsMm, ...options.heightsMm } };
   const { w, h, data, cellMm: C } = mask;
@@ -364,6 +372,7 @@ export function routeApartment(
       bends: f.bends,
       drills: f.drills,
       lengthMm: length,
+      conduit: 20,
     });
     return true;
   };
@@ -392,6 +401,50 @@ export function routeApartment(
     }
   }
 
+  // Діаметр труби: у кожній клітинці сумуємо площі кабелів різних кіл (одне коло = один кабель, що йде ланцюжком).
+  const areaOf = (c: string) => board.find((b) => b.id === c)?.areaMm2 ?? 65;
+  const cellCircuits = new Map<number, Set<string>>();
+  const legCells = legs.map((l) => {
+    const keys = new Set<number>();
+    for (let i = 1; i < l.path.length; i++) {
+      const a = l.path[i - 1]!;
+      const b = l.path[i]!;
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / C));
+      for (let s = 0; s <= n; s++) {
+        const p = cellOf(a.x + ((b.x - a.x) * s) / n, a.y + ((b.y - a.y) * s) / n);
+        const k = p.j * w + p.i;
+        keys.add(k);
+        let set = cellCircuits.get(k);
+        if (!set) cellCircuits.set(k, (set = new Set()));
+        set.add(l.circuit);
+      }
+    }
+    return keys;
+  });
+  const byConduit: ApartmentRoutes["byConduit"] = { 20: 0, 25: 0, 32: 0 };
+  legs.forEach((l, i) => {
+    let worst = 0;
+    for (const k of legCells[i]!) {
+      let a = 0;
+      for (const c of cellCircuits.get(k)!) a += areaOf(c);
+      worst = Math.max(worst, a);
+    }
+    l.conduit = pickConduit(worst).fi;
+  });
+  // Довжина труб: кожна клітинка траси береться раз; кабелі кількох кіл в одному коридорі йдуть спільною трубою, а понад ємність fi32 — паралельними.
+  const cap32 = CONDUIT_FILL * Math.PI * (28 / 2) ** 2;
+  for (const set of cellCircuits.values()) {
+    let a = 0;
+    for (const c of set) a += areaOf(c);
+    const pipes = Math.max(1, Math.ceil(a / cap32));
+    const fi = pipes > 1 ? 32 : pickConduit(a).fi;
+    byConduit[fi] += pipes * C * (1 + o.reserve);
+  }
+  const boardNotes: string[] = [];
+  const present = new Set(groups.keys());
+  for (const c of present) if (c !== "TT" && !board.some((b) => b.id === c)) boardNotes.push(`коло ${c}/TM є на плані, але відсутнє у схемі щита`);
+  for (const b of board) if (Number(b.id) <= 9 && !present.has(b.id)) boardNotes.push(`коло ${b.id} (${b.name.uk}) є у схемі щита, але не знайдене на плані`);
+
   const byCircuit: ApartmentRoutes["byCircuit"] = {};
   let total = 0;
   for (const l of legs) {
@@ -401,5 +454,5 @@ export function routeApartment(
     b.legs++;
     total += l.lengthMm;
   }
-  return { legs, byCircuit, totalMm: total, unreached };
+  return { legs, byCircuit, totalMm: total, unreached, byConduit, boardNotes };
 }
