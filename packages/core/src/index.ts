@@ -16,3 +16,4 @@ export * from "./apartment/regions";
 export * from "./apartment/report";
 export * from "./cad/plan";
 export * from "./apartment/columns";
+export * from "./cad/pdfPlan";

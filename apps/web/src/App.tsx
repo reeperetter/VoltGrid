@@ -61,6 +61,7 @@ import { downloadBytes, downloadText, readFileText, safeFileName } from "./lib/f
 import { buildReportHtml, openPrintableReport } from "./lib/printReport";
 import { buildXlsx } from "./lib/exportXlsx";
 import { FloorView } from "./FloorView";
+import { HelpPanel } from "./help/HelpPanel";
 import { guessMmPerPx, loadUnderlay } from "./lib/underlay";
 
 const REGION_ID = "pl";
@@ -96,6 +97,7 @@ export function App() {
 
   const [activeLevelId, setActiveLevelId] = useState(() => project.levels[0]?.id ?? "");
   const [view, setView] = useState<"floor" | "editor">("floor");
+  const [helpOpen, setHelpOpen] = useState(false);
   const [tool, setTool] = useState<Tool>("select");
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -157,8 +159,14 @@ export function App() {
   // Гарячі клавіші: Delete, Ctrl+Z/Y, Ctrl+A (усі точки поверху), Ctrl+D (копія), стрілки (зсув), Esc.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setHelpOpen(true);
+        return;
+      }
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+      if (view !== "editor" || helpOpen) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (mod && key === "z") {
@@ -195,7 +203,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [apply, doRedo, doUndo, selectedId, selectedIds, pointSelection, project.points, activeLevelId, options.gridMm, onDuplicateSelection]);
+  }, [apply, doRedo, doUndo, selectedId, selectedIds, pointSelection, project.points, activeLevelId, options.gridMm, onDuplicateSelection, view, helpOpen]);
 
   useEffect(() => {
     setSelectedIds([]);
@@ -570,10 +578,20 @@ export function App() {
           <button onClick={doUndo} disabled={!canUndo(history)} title="Ctrl+Z">Назад</button>
           <button onClick={doRedo} disabled={!canRedo(history)} title="Ctrl+Y">Вперед</button>
           <button onClick={() => setFitSignal((n) => n + 1)}>Показати все</button>
+          <span className="sep" />
+          <button onClick={() => setHelpOpen(true)} title="F1">? Довідка</button>
         </div>
       </header>
 
       {view === "floor" && <FloorView />}
+      {helpOpen && (
+        <HelpPanel
+          onClose={() => setHelpOpen(false)}
+          onGo={(a) => {
+            if (a === "floor" || a === "editor") setView(a);
+          }}
+        />
+      )}
       <div className="workspace" style={view === "floor" ? { display: "none" } : undefined}>
         <nav className="toolbar" aria-label="Інструменти">
           {TOOLS.map((t) => (

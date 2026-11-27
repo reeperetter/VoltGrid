@@ -2,6 +2,7 @@ import { useState } from "react";
 import { buildFloorReport, REPORT_COLUMNS, type FloorReport } from "@voltgrid/core";
 import { downloadBytes } from "./lib/files";
 import { readDwgPlan } from "./lib/dwg";
+import { readPdfPlan } from "./lib/pdfPlan";
 import { buildFloorXlsx } from "./lib/exportFloorXlsx";
 
 /** Екран «Поверх з DWG»: квартири визначаються автоматично, компоненти рахуються за підписами на плані. */
@@ -9,6 +10,8 @@ export function FloorView() {
   const [report, setReport] = useState<FloorReport>();
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scale, setScale] = useState(100);
+  const [isPdf, setIsPdf] = useState(false);
   const [error, setError] = useState<string>();
 
   async function onFile(file: File | undefined) {
@@ -17,7 +20,9 @@ export function FloorView() {
     setError(undefined);
     setReport(undefined);
     try {
-      const plan = await readDwgPlan(file);
+      const pdf = /\.pdf$/i.test(file.name);
+      setIsPdf(pdf);
+      const plan = pdf ? await readPdfPlan(await file.arrayBuffer(), scale) : await readDwgPlan(file);
       // Дрібна пауза, щоб браузер встиг показати «Розбираю…» перед важким розрахунком.
       await new Promise((r) => setTimeout(r, 30));
       setReport(buildFloorReport(plan));
@@ -47,15 +52,26 @@ export function FloorView() {
     <div className="floor-view">
       <div className="floor-actions">
         <label className="button">
-          Відкрити DWG поверху
+          Відкрити план поверху (DWG / PDF)
           <input
             type="file"
-            accept=".dwg"
+            accept=".dwg,.pdf,application/pdf"
             hidden
             onChange={(e) => {
               void onFile(e.target.files?.[0]);
               e.target.value = "";
             }}
+          />
+        </label>
+        <label title="Для PDF: 100 означає масштаб 1:100">
+          Масштаб PDF 1:
+          <input
+            type="number"
+            min={1}
+            max={5000}
+            value={scale}
+            style={{ width: 70, marginLeft: 4 }}
+            onChange={(e) => setScale(Math.max(1, Number(e.target.value) || 100))}
           />
         </label>
         <button onClick={() => void onExport()} disabled={!report}>Експорт у Excel</button>
@@ -67,6 +83,12 @@ export function FloorView() {
         )}
       </div>
       {error && <p className="floor-error">{error}</p>}
+      {report && isPdf && (
+        <p className="floor-warnings">
+          Джерело — PDF: символи без підпису (домофонна трубка, датчик диму, настінні виводи світла) не розпізнаються, тож ці стовпці можуть бути
+          нульовими. Точніший результат дає DWG.
+        </p>
+      )}
       {report && report.warnings.length > 0 && (
         <ul className="floor-warnings">
           {report.warnings.map((w, i) => (
@@ -113,8 +135,8 @@ export function FloorView() {
       )}
       {!report && !busy && !error && (
         <p className="floor-hint">
-          Відкрийте DWG електричного плану поверху (Revit-експорт із шарами _E_GNIAZDA, _E_OŚW, _E_TABLICE). Програма сама
-          знайде квартири за стінами й вхідними дверима та порахує компоненти за підписами на плані.
+          Відкрийте DWG електричного плану поверху (Revit-експорт із шарами _E_GNIAZDA, _E_OŚW, _E_TABLICE) або векторний PDF (тоді вкажіть масштаб). Програма сама
+          знайде квартири за стінами та порахує компоненти за підписами на плані. Малювати нічого не потрібно; докладніше — у довідці (F1).
         </p>
       )}
     </div>
