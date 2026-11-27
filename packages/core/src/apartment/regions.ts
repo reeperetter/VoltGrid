@@ -36,8 +36,19 @@ export const DEFAULT_REGION_OPTIONS: RegionOptions = {
   minLabels: 3,
 };
 
+/** Растр квартири для трасування: 1 — вільна клітинка квартири, 2 — стіна/перешкода, 0 — не належить квартирі. */
+export interface RegionMask {
+  x0: number;
+  y0: number;
+  cellMm: number;
+  w: number;
+  h: number;
+  data: Uint8Array;
+}
+
 export interface ApartmentRegion {
   id: number;
+  mask: RegionMask;
   tm: { x: number; y: number };
   areaM2: number;
   bbox: { x0: number; y0: number; x1: number; y1: number };
@@ -220,8 +231,21 @@ export function findApartmentRegions(
       ry0 = Math.min(ry0, cj);
       ry1 = Math.max(ry1, cj);
     }
+    const mw = rx1 - rx0 + 1 + 2;
+    const mh = ry1 - ry0 + 1 + 2;
+    const mdata = new Uint8Array(mw * mh);
+    for (let j = 0; j < mh; j++) {
+      for (let i = 0; i < mw; i++) {
+        const gi = rx0 - 1 + i;
+        const gj = ry0 - 1 + j;
+        if (gi < 0 || gj < 0 || gi >= W || gj >= H) continue;
+        const g = gj * W + gi;
+        mdata[j * mw + i] = owner[g] === id ? 1 : baseWall[g] ? 2 : 0;
+      }
+    }
     regions.push({
       id,
+      mask: { x0: x0 + (rx0 - 1) * C, y0: y0 + (ry0 - 1) * C, cellMm: C, w: mw, h: mh, data: mdata },
       tm,
       areaM2: (best.cells.length * C * C) / 1e6,
       bbox: { x0: x0 + rx0 * C, y0: y0 + ry0 * C, x1: x0 + (rx1 + 1) * C, y1: y0 + (ry1 + 1) * C },

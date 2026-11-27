@@ -168,3 +168,13 @@ button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
   .help-steps { background: #263149; }
   .help-head { border-color: #343a48; }
 }
+
+.plan-view { display: flex; gap: 8px; height: 72vh; min-height: 420px; }
+.plan-canvas { flex: 1; min-width: 0; background: #fff; border: 1px solid #d1d5db; cursor: grab; }
+.plan-side { width: 340px; overflow: auto; overflow-x: hidden; font-size: 13px; }
+.plan-legend { list-style: none; padding: 0; margin: 0 0 8px; }
+.plan-legend li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; cursor: pointer; border-radius: 4px; }
+.plan-legend li.active { background: #e0e7ff; }
+.plan-legend li b { margin-left: auto; }
+.plan-legend i, .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+@media (max-width: 800px) { .plan-view { flex-direction: column; height: auto; } .plan-canvas { height: 60vh; } .plan-side { width: auto; } }

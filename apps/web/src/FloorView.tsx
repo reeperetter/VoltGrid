@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { buildFloorReport, REPORT_COLUMNS, type FloorReport } from "@voltgrid/core";
+import { buildFloorReport, REPORT_COLUMNS, type FloorReport, type PlanData } from "@voltgrid/core";
+import { PlanView } from "./PlanView";
 import { downloadBytes } from "./lib/files";
 import { readDwgPlan } from "./lib/dwg";
 import { readPdfPlan } from "./lib/pdfPlan";
@@ -8,6 +9,9 @@ import { buildFloorXlsx } from "./lib/exportFloorXlsx";
 /** Екран «Поверх з DWG»: квартири визначаються автоматично, компоненти рахуються за підписами на плані. */
 export function FloorView() {
   const [report, setReport] = useState<FloorReport>();
+  const [plan, setPlan] = useState<PlanData>();
+  const [selected, setSelected] = useState<number>();
+  const [tab, setTab] = useState<"plan" | "table">("plan");
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
   const [scale, setScale] = useState(100);
@@ -25,6 +29,8 @@ export function FloorView() {
       const plan = pdf ? await readPdfPlan(await file.arrayBuffer(), scale) : await readDwgPlan(file);
       // Дрібна пауза, щоб браузер встиг показати «Розбираю…» перед важким розрахунком.
       await new Promise((r) => setTimeout(r, 30));
+      setPlan(plan);
+      setSelected(undefined);
       setReport(buildFloorReport(plan));
       setFileName(file.name);
     } catch (e) {
@@ -96,7 +102,14 @@ export function FloorView() {
           ))}
         </ul>
       )}
-      {report && (
+      {report && plan && (
+        <div className="view-switch" role="tablist">
+          <button className={tab === "plan" ? "active" : undefined} onClick={() => setTab("plan")}>План</button>
+          <button className={tab === "table" ? "active" : undefined} onClick={() => setTab("table")}>Таблиця</button>
+        </div>
+      )}
+      {report && plan && tab === "plan" && <PlanView plan={plan} report={report} selected={selected} onSelect={setSelected} />}
+      {report && tab === "table" && (
         <div className="floor-table-wrap">
           <table className="floor-table">
             <thead>
@@ -111,7 +124,7 @@ export function FloorView() {
             </thead>
             <tbody>
               {report.apartments.map((a) => (
-                <tr key={a.index} className={a.warnings.length ? "has-warning" : undefined}>
+                <tr key={a.index} className={a.warnings.length ? "has-warning" : undefined} onClick={() => { setSelected(a.index); setTab("plan"); }} style={{ cursor: "pointer" }}>
                   <td>{a.index}</td>
                   <td>{a.areaM2.toFixed(1)}</td>
                   {REPORT_COLUMNS.map((c) => (

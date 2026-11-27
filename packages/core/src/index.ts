@@ -17,3 +17,5 @@ export * from "./apartment/report";
 export * from "./cad/plan";
 export * from "./apartment/columns";
 export * from "./cad/pdfPlan";
+export * from "./apartment/elements";
+export * from "./apartment/routing";
